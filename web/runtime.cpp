@@ -4,6 +4,7 @@
 #include "Lawn/System/PlayerInfo.h"
 #include "Lawn/System/ProfileMgr.h"
 #include "Lawn/System/SaveGame.h"
+#include "Lawn/Widget/AugmentEncyclopediaDialog.h"
 #include "Lawn/System/Music.h"
 #include "SexyAppFramework/widget/WidgetManager.h"
 #include "SexyAppFramework/widget/EditWidget.h"
@@ -36,6 +37,11 @@ EMSCRIPTEN_KEEPALIVE int pvz_web_pointer(int type, int x, int y, int right, int 
     return SDL_PushEvent(&event);
 }
 EMSCRIPTEN_KEEPALIVE int pvz_web_updates() { return gLawnApp?gLawnApp->mUpdateCount:0; }
+EMSCRIPTEN_KEEPALIVE int pvz_web_catalog_selection() {
+    if(!gLawnApp)return -1;
+    auto* dialog=static_cast<AugmentEncyclopediaDialog*>(gLawnApp->GetDialog(Dialogs::DIALOG_AUGMENT_ENCYCLOPEDIA));
+    return dialog?dialog->mSelectedAugment:-1;
+}
 // Called only for the tracker's decoded music; SFX cannot satisfy this probe.
 void pvz_web_music_pcm(const void* data, int bytes) {
     const auto* samples = static_cast<const int16_t*>(data);

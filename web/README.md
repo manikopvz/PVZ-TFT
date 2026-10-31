@@ -49,3 +49,8 @@ The browser test serves the output under `/PVZ-TFT/`, starts the actual Wasm gam
 
 See [THIRD_PARTY.md](THIRD_PARTY.md) for the pinned backend and license information. Source transformations are confined to the generated staging directory, so future TFT gameplay edits remain the source of truth for both targets.
 
+Mobile taps, drags and 350 ms right-click holds enter SDL's mouse event queue directly. Consecutive holds preserve double-click counts for Bench selling. Desktop right-click keeps the native SDL path. Compiled animations use the same case-insensitive PFILE lookup as images, including `IceShroom`/`Iceshroom` and `TwinSunflower`/`TwinSunFlower` resource names from the Windows asset set.
+
+CI additionally builds with `PVZ_WEB_TESTS=ON` to run `web/tests/browser-gameplay.cjs`. Isolated native fixtures exercise trusted touch holds, Shop locking/tutorial progression, Bench selling, Almanac selection and wave-3 Augment reroll/selection/resume. CI then turns that option off, rebuilds the runtime, and smoke-tests the exact production files. The production and public-site checks assert that fixture exports are absent and open the Almanac through its actual menu button.
+
+

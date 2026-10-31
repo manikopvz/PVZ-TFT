@@ -12,18 +12,18 @@ EMSCRIPTEN_KEEPALIVE void pvz_web_test_setup(int scene) {
     gLawnApp->PreNewGame(GameMode::GAMEMODE_ADVENTURE,false);
     auto* board=gLawnApp->mBoard;
     board->mCutScene->CancelIntro();
-    if(gLawnApp->mGameScene!=GameScenes::SCENE_PLAYING)gLawnApp->StartPlaying();
     board->EndRollTutorial(); board->mRollTutorialChecked=true;
     board->mTutorialState=TutorialState::TUTORIAL_OFF;
     board->mSunMoney=100; board->mZombieCountDown=100000;
-    if(scene==2) {
-        board->mCurrentWave=2; board->mZombieCountDown=1;
-        board->UpdateZombieSpawning();
-    }
 }
 EMSCRIPTEN_KEEPALIVE void pvz_web_test_command(int action) {
     auto* board=gLawnApp->mBoard;
-    if(action==0)board->SetRollTutorialStep(ROLL_TUT_LOCK);
+    if(action==3) {
+        board->SetRollTutorialStep(ROLL_TUT_WAIT_AUGMENT);
+        board->mCurrentWave=2; board->mZombieCountDown=1;
+        board->UpdateZombieSpawning();
+    }
+    else if(action==0)board->SetRollTutorialStep(ROLL_TUT_LOCK);
     else if(action==1)board->AddSeedToBench(SeedType::SEED_PEASHOOTER,1,0);
     else if(action==2)board->EndRollTutorial();
 }
@@ -33,6 +33,7 @@ EMSCRIPTEN_KEEPALIVE void pvz_web_test_state() {
     auto* catalog=static_cast<AugmentEncyclopediaDialog*>(gLawnApp->GetDialog(Dialogs::DIALOG_AUGMENT_ENCYCLOPEDIA));
     if(catalog) EM_ASM({Module.testState.selected=$0;},catalog->mSelectedAugment);
     if(!board)return;
+    EM_ASM({Object.assign(Module.testState,{playing:!!$0,boardX:$1,boardY:$2});},gLawnApp->mGameScene==GameScenes::SCENE_PLAYING,board->mX,board->mY);
     EM_ASM({Object.assign(Module.testState,{choosing:!!$0,timer:$1,active:$2,tutorial:$3,bench:$4,locked:$5,rolls:$6});},
         board->mAugmentChoosing,board->mAugmentTimer,board->mActiveAugment,board->mRollTutorialStep,
         board->mBenchCount,board->mSeedBank->CountLockedSlots(),board->mManualRollCount);

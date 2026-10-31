@@ -27,6 +27,10 @@ async function main(){
       await page.locator('#start:enabled').waitFor({timeout:120000});await page.locator('#start').click();
       await page.waitForFunction(()=>Module._pvz_web_ready?.()===1,null,{timeout:120000});
       await page.evaluate(scene=>Module._pvz_web_test_setup(scene),scene);
+      if(scene!==0) {
+        await page.waitForFunction(()=>{Module._pvz_web_test_state();return Module.testState.playing;},null,{timeout:10000});
+        if(scene===2)await page.evaluate(()=>Module._pvz_web_test_command(3));
+      }
       const state=()=>page.evaluate(()=>{Module._pvz_web_test_state();return Module.testState;});
       const healthy=async()=>{const n=await page.evaluate(()=>Module._pvz_web_updates());await page.waitForFunction(n=>Module._pvz_web_updates()>n+5,n,{timeout:5000});assert.deepEqual(errors,[]);};
       const click=async(x,y,options={})=>{const b=await page.locator('#canvas').boundingBox();await page.mouse.click(b.x+x*b.width/1280,b.y+y*b.height/720,options);};

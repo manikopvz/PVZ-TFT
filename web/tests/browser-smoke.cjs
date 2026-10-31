@@ -60,6 +60,19 @@ async function main() {
     await page.locator('#pvz-soft-keyboard').press('Enter');
     await page.waitForTimeout(600);
     assert.equal(await page.evaluate(()=>document.activeElement.id),'canvas');
+    if(liveUrl || process.env.PVZ_EXPECT_PRODUCTION)assert.equal(await page.evaluate(()=>typeof Module._pvz_web_test_setup),'undefined','CI scene fixtures must not ship to players');
+    // Open the actual menu button (including its modal lifecycle), not a fixture.
+    const gameClick=async(x,y)=>{const r=await page.locator('#canvas').boundingBox();await page.mouse.click(r.x+x*r.width/1280,r.y+y*r.height/720);};
+    for(let attempt=0;attempt<12;attempt++) {
+      await gameClick(1200,688);await page.waitForTimeout(500);
+      if(await page.evaluate(()=>Module._pvz_web_catalog_selection()>=0))break;
+    }
+    await page.waitForFunction(()=>Module._pvz_web_catalog_selection()===0);
+    const beforeCatalog=await page.evaluate(()=>Module._pvz_web_updates());
+    await page.waitForFunction(n=>Module._pvz_web_updates()>n+10,beforeCatalog,{timeout:5000});
+    await gameClick(343,190);await page.waitForFunction(()=>Module._pvz_web_catalog_selection()===1);
+    await gameClick(520,640);await page.waitForFunction(()=>Module._pvz_web_catalog_selection()===8);
+    await gameClick(960,640);await page.waitForFunction(()=>Module._pvz_web_catalog_selection()===-1);
     // No labels, headers, save toolbar, or footer around the game.
     assert.equal(await page.locator('button:visible').count(),2);
     assert.deepEqual(await page.locator('button:visible').allTextContents(),['','']);
@@ -119,5 +132,6 @@ async function main() {
   } finally {if(browser)await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
+
 
 

@@ -46,7 +46,7 @@ jobs:
           emcmake cmake -S build-web/stage -B build-web/build -DPVZ_WEB_TESTS=OFF
           cmake --build build-web/build --parallel 4
           cp build-web/build/index.{html,js,wasm,data} build-web/dist/
-          NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-smoke.cjs build-web/dist
+          PVZ_EXPECT_PRODUCTION=1 NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-smoke.cjs build-web/dist
       - name: Upload browser verification screenshot
         if: always()
         uses: actions/upload-artifact@v4
