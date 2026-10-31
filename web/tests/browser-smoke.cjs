@@ -5,10 +5,12 @@ const http = require('node:http');
 const { chromium } = require('playwright');
 
 async function main() {
-  const root = path.resolve(process.argv[2] || 'build-web/dist');
+  const target = process.argv[2] || 'build-web/dist';
+  const liveUrl = target.startsWith('https://') ? target : null;
+  const root = liveUrl ? null : path.resolve(target);
   const errors = [];
   const mime = {'.html':'text/html','.js':'text/javascript','.wasm':'application/wasm','.data':'application/octet-stream','.json':'application/json'};
-  const server = http.createServer((req,res) => {
+  const server = liveUrl ? null : http.createServer((req,res) => {
     let pathname;
     try { pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname); } catch {res.writeHead(400).end();return;}
     if(!pathname.startsWith('/PVZ-TFT/')) {res.writeHead(404).end();return;}
@@ -17,7 +19,7 @@ async function main() {
     if(!fs.existsSync(file) || !fs.statSync(file).isFile()) {res.writeHead(404).end();return;}
     res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');fs.createReadStream(file).pipe(res);
   });
-  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  if(server)await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   let browser;
   try {
     browser=await chromium.launch({headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader',...(process.env.PVZ_BROWSER_SINGLE_PROCESS?['--single-process','--no-zygote']:[])]});
@@ -26,7 +28,7 @@ async function main() {
     page.on('pageerror',error=>errors.push(error.message));
     page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
     page.on('response',response=>{if(response.status()>=400 && !response.url().endsWith('favicon.ico'))errors.push(`${response.status()} ${response.url()}`);});
-    const url=`http://127.0.0.1:${server.address().port}/PVZ-TFT/`;
+    const url=liveUrl || `http://127.0.0.1:${server.address().port}/PVZ-TFT/`;
     await page.goto(url);
     await page.locator('#start:enabled').waitFor({timeout:120000});
     await page.locator('#start').click();
@@ -57,7 +59,7 @@ async function main() {
     console.log(`Browser startup, 1280x720 canvas, Pages subpath, IndexedDB, save export/import and traversal rejection passed (SharedArrayBuffer: ${version}).`);
     assert.deepEqual(errors,[]);
     await context.close();
-  } finally {if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
+  } finally {if(browser)await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
 
