@@ -86,13 +86,14 @@ EMSCRIPTEN_KEEPALIVE int pvz_web_ready() {
 
 EMSCRIPTEN_KEEPALIVE void pvz_web_resume_audio() {
     EM_ASM({
-        if (typeof SDL2 !== 'undefined' && SDL2.audioContext && SDL2.audioContext.state === 'suspended') {
-            SDL2.audioContext.resume().catch(function(e) { console.warn('Audio resume:', e); });
+        var sdl=Module['SDL2'];
+        if (sdl && sdl.audioContext && sdl.audioContext.state === 'suspended') {
+            sdl.audioContext.resume().catch(function(e) { console.warn('Audio resume:', e); });
         }
     });
 }
 EMSCRIPTEN_KEEPALIVE int pvz_web_audio_running() {
-    return EM_ASM_INT({ return typeof SDL2 !== 'undefined' && SDL2.audioContext && SDL2.audioContext.state === 'running' ? 1 : 0; });
+    return EM_ASM_INT({ var sdl=Module['SDL2']; return sdl && sdl.audioContext && sdl.audioContext.state === 'running' ? 1 : 0; });
 }
 }
 

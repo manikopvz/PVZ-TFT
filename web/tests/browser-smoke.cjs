@@ -20,11 +20,11 @@ async function main() {
     res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');fs.createReadStream(file).pipe(res);
   });
   if(server)await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  let browser;
+  let browser, page;
   try {
     browser=await chromium.launch({headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader',...(process.env.PVZ_BROWSER_SINGLE_PROCESS?['--single-process','--no-zygote']:[])]});
     const context=await browser.newContext({viewport:{width:1360,height:1000}});
-    const page=await context.newPage();
+    page=await context.newPage();
     page.on('pageerror',error=>errors.push(error.message));
     page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
     page.on('response',response=>{if(response.status()>=400 && !response.url().endsWith('favicon.ico'))errors.push(`${response.status()} ${response.url()}`);});
@@ -109,6 +109,13 @@ async function main() {
       assert.equal(await graphicsPage.evaluate(()=>Module._pvz_web_ready()),-2);
       await graphicsContext.close();console.log('Unavailable WebGL reports a clear startup error.');
     }
+  } catch(error) {
+    if(page && !page.isClosed()) {
+      console.error(await page.locator('#log').textContent().catch(()=>''));
+      console.error(await page.evaluate(()=>({status:document.getElementById('status')?.textContent,active:document.activeElement?.id,music:Module._pvz_web_music_playing?.(),samples:Module._pvz_web_music_samples?.(),audio:Module['SDL2']?.audioContext?.state,editing:Module._pvz_web_text_active?.()})).catch(()=>({})));
+      if(process.env.PVZ_SMOKE_SCREENSHOT)await page.screenshot({path:process.env.PVZ_SMOKE_SCREENSHOT}).catch(()=>{});
+    }
+    throw error;
   } finally {if(browser)await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
