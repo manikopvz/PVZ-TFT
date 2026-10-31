@@ -49,6 +49,7 @@ async function main(){
         await click(365,190);await healthy();assert.equal((await state()).selected,1);
         await click(520,640);await healthy();assert.equal((await state()).selected,8);
         await page.screenshot({path:'build-web/gameplay-gifts-check.png'});
+        await click(960,640);await healthy();assert.equal((await state()).selected,undefined,'Almanac closes on the first tap without a preceding hover frame');
       } else if(scene===1){
         const p=(await state()).packet;
         await click(p.x,p.y,{button:'right'});await healthy();assert.equal((await state()).locked,1,'desktop right-click locks a Shop packet');

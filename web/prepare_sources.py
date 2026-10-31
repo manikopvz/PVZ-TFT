@@ -243,6 +243,20 @@ p.write_text(s)
 shutil.copy2(root/'web/runtime.cpp',src/'web_runtime.cpp')
 shutil.copy2(root/'web/tests/runtime.h',src/'web_test_runtime.h')
 shutil.copy2(root/'web/shell.html',out/'wasm/shell.html')
+# A touch tap queues move/down/up in one frame. Manual GameButtons cannot use
+# the previous Update's hover flag for hit-testing (notably Almanac Close).
+p=src/'Lawn/Widget/GameButton.cpp';s=p.read_text()
+s=body(s,'bool GameButton::IsMouseOver()', '''
+    if(mDisabled || mBtnNoDraw)return false;
+    WidgetManager* manager=mApp->mWidgetManager;
+    if(!manager)return false;
+    int x=manager->mLastMouseX, y=manager->mLastMouseY;
+    if(mParentWidget) {
+        Point pos=mParentWidget->GetAbsPos(); x-=pos.mX; y-=pos.mY;
+    }
+    if(mApp->GetDialogCount()>0 && manager->mFocusWidget!=mParentWidget)return false;
+    return Rect(mX,mY,mWidth,mHeight).Contains(x,y);
+''');p.write_text(s)
 # Windows resource names are case-insensitive (IceShroom vs Iceshroom,
 # TwinSunflower vs TwinSunFlower). The portable compiled reader bypasses the
 # framework's case-aware PFILE path with std::ifstream; use PFILE consistently.
