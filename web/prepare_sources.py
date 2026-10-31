@@ -241,6 +241,7 @@ for method,operation in [('ReadFromRegistry','Read'),('WriteToRegistry','Write')
     s=s[:start]+'\n'+calls+'\n'+s[start:]
 p.write_text(s)
 shutil.copy2(root/'web/runtime.cpp',src/'web_runtime.cpp')
+shutil.copy2(root/'web/tests/runtime.h',src/'web_test_runtime.h')
 shutil.copy2(root/'web/shell.html',out/'wasm/shell.html')
 # Match the projection and mouse presentation rectangle to this game's logical size.
 p=fw/'graphics/GLInterface.cpp';s=p.read_text()
@@ -277,14 +278,20 @@ p=out/'CMakeLists.txt';p.write_text(p.read_text().replace('\\"FS\\",\\"callMain\
 if(NOT EMSCRIPTEN)
  message(FATAL_ERROR "The staged PVZ-TFT target is for Emscripten only")
 endif()
+option(PVZ_WEB_TESTS "Enable isolated browser gameplay test fixtures" OFF)
+if(PVZ_WEB_TESTS)
+ set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/web_runtime.cpp" PROPERTIES COMPILE_DEFINITIONS PVZ_WEB_TESTS)
+endif()
 target_compile_options(pvz-portable PRIVATE -fexceptions)
 target_link_options(pvz-portable PRIVATE
  "SHELL:-fexceptions"
+ "SHELL:-g2"
  "SHELL:-sSTACK_SIZE=8388608"
  "SHELL:-sINITIAL_MEMORY=134217728"
  "SHELL:--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/assets@/"
 )
 set_target_properties(pvz-portable PROPERTIES OUTPUT_NAME "index")
 ''')
+
 
 

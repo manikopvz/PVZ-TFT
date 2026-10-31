@@ -30,6 +30,8 @@ jobs:
           path: build-web/openmpt-prefix
           key: wasm-openmpt-0.8.4-emsdk-4.0.21-v1
       - name: Build the original TFT gameplay for browsers
+        env:
+          PVZ_WEB_TESTS: 'ON'
         run: bash web/build.sh
       - name: Browser smoke test
         env:
@@ -37,13 +39,20 @@ jobs:
         run: |
           npm install --prefix build-web/browser-test playwright@1.51.1
           build-web/browser-test/node_modules/.bin/playwright install --with-deps chromium
+          NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-gameplay.cjs build-web/dist
+          NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-smoke.cjs build-web/dist
+      - name: Remove CI fixtures from the published game
+        run: |
+          emcmake cmake -S build-web/stage -B build-web/build -DPVZ_WEB_TESTS=OFF
+          cmake --build build-web/build --parallel 4
+          cp build-web/build/index.{html,js,wasm,data} build-web/dist/
           NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-smoke.cjs build-web/dist
       - name: Upload browser verification screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pvz-tft-browser-check
-          path: build-web/browser-check.png
+          path: build-web/*check.png
           if-no-files-found: ignore
           retention-days: 14
       - name: Upload playable build
