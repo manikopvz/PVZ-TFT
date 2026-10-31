@@ -37,6 +37,11 @@ EMSCRIPTEN_KEEPALIVE int pvz_web_pointer(int type, int x, int y, int right, int 
     return SDL_PushEvent(&event);
 }
 EMSCRIPTEN_KEEPALIVE int pvz_web_updates() { return gLawnApp?gLawnApp->mUpdateCount:0; }
+EMSCRIPTEN_KEEPALIVE void pvz_web_wheel(int x,int y,int delta) {
+    if(!gLawnApp || !gLawnApp->mWidgetManager || !delta)return;
+    gLawnApp->mWidgetManager->MouseMove(x,y);
+    gLawnApp->mWidgetManager->MouseWheel(std::clamp(delta,-8,8));
+}
 EMSCRIPTEN_KEEPALIVE int pvz_web_catalog_selection() {
     if(!gLawnApp)return -1;
     auto* dialog=static_cast<AugmentEncyclopediaDialog*>(gLawnApp->GetDialog(Dialogs::DIALOG_AUGMENT_ENCYCLOPEDIA));
@@ -125,6 +130,7 @@ EMSCRIPTEN_KEEPALIVE int pvz_web_audio_running() {
 #ifdef PVZ_WEB_TESTS
 #include "web_test_runtime.h"
 #endif
+
 
 
 

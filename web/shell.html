@@ -8,11 +8,13 @@
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; }
+    :root { --rail: calc(56px + env(safe-area-inset-bottom)); }
     body { display: grid; place-items: center; font: 16px system-ui,sans-serif; }
-    #stage { position: relative; width: min(100vw, calc(100dvh * 16 / 9)); aspect-ratio: 16 / 9; background: #000; }
+    #stage { display: flex; flex-direction: column; align-items: center; justify-content: center; width: min(100vw, calc((100dvh - var(--rail)) * 16 / 9)); background: #000; }
+    #game { position: relative; width: 100%; aspect-ratio: 16 / 9; }
     canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; outline: none; }
-    #stage:fullscreen { width: 100vw; height: 100dvh; display: grid; place-items: center; }
-    #stage:fullscreen canvas { width: min(100vw, calc(100dvh * 16 / 9)) !important; height: min(100dvh, calc(100vw * 9 / 16)) !important; }
+    #stage:fullscreen { width: 100vw; height: 100dvh; }
+    #stage:fullscreen #game, #stage:fullscreen #controls { width: min(100vw, calc((100dvh - var(--rail)) * 16 / 9)); }
     button { display: grid; place-items: center; border: 0; border-radius: 50%; padding: 0; width: 44px; height: 44px; background: #1119; color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent; }
     button:hover { background: #333c; }
     button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
@@ -20,7 +22,9 @@
     button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
     #start { position: absolute; z-index: 2; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 80px; height: 80px; background: #111c; }
     #start svg { width: 38px; height: 38px; fill: currentColor; }
-    #controls { position: absolute; z-index: 3; right: max(8px,env(safe-area-inset-right)); top: max(8px,env(safe-area-inset-top)); display: flex; gap: 6px; }
+    #controls { width: 100%; height: var(--rail); flex: 0 0 var(--rail); display: flex; align-items: flex-start; justify-content: flex-end; gap: 6px; padding: 6px 6px max(6px,env(safe-area-inset-bottom)); }
+    #notice { position: absolute; bottom: 10px; left: 10px; right: 10px; margin: 0; padding: 10px; border-radius: 8px; background: #101010ed; text-align: center; pointer-events: none; z-index: 5; }
+
     #loading { position: absolute; left: calc(50% - 18px); top: calc(50% - 18px); width: 36px; height: 36px; border: 3px solid #fff3; border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
@@ -31,16 +35,22 @@
 </head>
 <body>
 <div id="stage">
+ <div id="game">
   <canvas id="canvas" width="1280" height="720" tabindex="0" aria-label="Plants vs. Zombies TFT"></canvas>
   <div id="loading" role="progressbar" aria-label="Đang tải game"></div>
   <button id="start" aria-label="Chơi ngay" title="Chơi ngay" disabled hidden><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
-  <div id="controls">
-    <button id="keyboard" aria-label="Bật bàn phím" title="Bật bàn phím" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 15h8"/></svg></button>
-    <button id="fullscreen" aria-label="Toàn màn hình" title="Toàn màn hình"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg></button>
-  </div>
   <input id="pvz-soft-keyboard" type="text" aria-label="Tên người chơi" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" tabindex="-1">
   <p id="status" role="status" aria-live="polite">Đang tải game…</p>
   <pre id="log" hidden></pre>
+  <p id="notice" role="status" hidden></p>
+ </div>
+  <div id="controls">
+    <button id="export" aria-label="Sao lưu tiến trình" title="Sao lưu tiến trình" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
+    <button id="restore" aria-label="Nhập save trước khi chơi" title="Nhập save trước khi chơi" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></button>
+    <input id="import" type="file" accept=".json,application/json" hidden>
+    <button id="keyboard" aria-label="Bật bàn phím" title="Bật bàn phím" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 15h8"/></svg></button>
+    <button id="fullscreen" aria-label="Toàn màn hình" title="Toàn màn hình"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg></button>
+  </div>
 </div>
 <script>
 'use strict';
@@ -51,6 +61,8 @@ let gameTimer, activeTouch = null, loadingFailed = false;
 function log(message) { $('log').textContent = ($('log').textContent + message + '\n').slice(-18000); }
 function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); }
 function failure(error) { loadingFailed = true; log(String(error)); status('Game gặp lỗi: ' + String(error), true); $('loading').hidden = true; }
+let noticeTimer;
+function notice(message) { $('notice').textContent=message; $('notice').hidden=false; clearTimeout(noticeTimer); noticeTimer=setTimeout(()=>{$('notice').hidden=true;},5000); }
 function sync(populate = false) {
   const task = syncQueue.then(() => new Promise((resolve,reject) => {
     Module.FS.syncfs(populate, error => error ? reject(error) : resolve());
@@ -78,7 +90,7 @@ var Module = {
       Module.FS.mount(Module.FS.filesystems.IDBFS, {}, '/saves'); mounted = true;
       await sync(true);
       ready = true;
-      $('start').disabled = false; $('start').hidden = false;
+      $('start').disabled = false; $('start').hidden = false; $('export').disabled=false; $('restore').disabled=false;
       $('loading').hidden = true; status('Sẵn sàng. Bấm Bắt đầu chơi.');
     } catch (error) {
       // A denied IndexedDB must not overwrite an existing save with an empty filesystem.
@@ -88,7 +100,7 @@ var Module = {
 };
 $('start').onclick = () => {
   if (!ready || started) return;
-  started = true; $('start').disabled = true; $('start').hidden = true; $('keyboard').disabled = false;
+  started = true; $('restore').disabled=true; $('start').disabled = true; $('start').hidden = true; $('keyboard').disabled = false;
   status('Đang khởi tạo game…'); canvas.focus();
   try { Module.callMain([]); }
   catch (error) { if (error !== 'unwind') { failure(error); return; } }
@@ -145,10 +157,17 @@ function touchMouse(type, touch, right = false) {
   }
   Module._pvz_web_pointer(type==='mousemove'?0:type==='mousedown'?1:2,x,y,right?1:0,count);
 }
-let holdTimer, touchOrigin, touchPressed = false, touchHeld = false;
+let holdTimer, touchOrigin, touchPressed = false, touchHeld = false, scrollTouch = false, scrollY = 0, scrollRemainder = 0;
 canvas.addEventListener('touchstart', event => {
   event.preventDefault(); event.stopImmediatePropagation();
-  if (activeTouch!==null || !event.changedTouches.length) return;
+  if(event.touches.length>=2){
+    clearTimeout(holdTimer);
+    if(touchPressed)touchMouse('mouseup',touchOrigin);
+    touchPressed=false;touchHeld=true;scrollTouch=true;activeTouch=null;
+    scrollY=(event.touches[0].clientY+event.touches[1].clientY)/2;scrollRemainder=0;
+    return;
+  }
+  if (scrollTouch || activeTouch!==null || !event.changedTouches.length) return;
   const touch=event.changedTouches[0]; activeTouch=touch.identifier;
   touchOrigin={clientX:touch.clientX,clientY:touch.clientY}; touchPressed=false; touchHeld=false;
   touchMouse('mousemove',touch); canvas.focus();
@@ -157,6 +176,17 @@ canvas.addEventListener('touchstart', event => {
 }, {capture:true,passive:false});
 for (const type of ['touchmove','touchend','touchcancel']) canvas.addEventListener(type, event => {
   event.preventDefault(); event.stopImmediatePropagation();
+  if(scrollTouch){
+    if(type==='touchmove' && event.touches.length>=2){
+      const x=(event.touches[0].clientX+event.touches[1].clientX)/2;
+      const y=(event.touches[0].clientY+event.touches[1].clientY)/2;
+      scrollRemainder+=y-scrollY;scrollY=y;
+      const steps=Math.trunc(scrollRemainder/24);
+      if(steps && started){const r=canvas.getBoundingClientRect();Module._pvz_web_wheel(Math.round((x-r.left)*canvas.width/r.width),Math.round((y-r.top)*canvas.height/r.height),steps);scrollRemainder-=steps*24;}
+    }
+    if(event.touches.length===0 || type==='touchcancel'){scrollTouch=false;activeTouch=null;}
+    return;
+  }
   for (const touch of event.changedTouches) if (touch.identifier===activeTouch) {
     if (type==='touchmove') {
       if (!touchHeld && !touchPressed && Math.hypot(touch.clientX-touchOrigin.clientX,touch.clientY-touchOrigin.clientY)>10) {
@@ -182,7 +212,7 @@ function filesBelow(path) {
 }
 async function exportSave() {
   try {
-    if(started)Module._pvz_web_save();
+    if(started)await save(false);
     const files=filesBelow('/saves').map(path => {
       const bytes=Module.FS.readFile(path); let binary='';
       for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
@@ -190,12 +220,12 @@ async function exportSave() {
     });
     const url=URL.createObjectURL(new Blob([JSON.stringify({format:'pvz-tft-web-save',version:1,files})],{type:'application/json'}));
     const link=document.createElement('a');link.href=url;link.download='pvz-tft-save.json';link.click();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);status('Đã tạo bản sao lưu tiến trình.');
-  } catch(error) { status('Không tạo được bản sao lưu: '+error,true); }
+    setTimeout(()=>URL.revokeObjectURL(url),1000);notice('Đã tải bản sao lưu tiến trình.');
+  } catch(error) { notice('Không tạo được bản sao lưu: '+error); }
 };
 async function importSave(file) {
   if (!file || started) return;
-  $('start').disabled = true;
+  $('start').disabled = true; $('restore').disabled=true;
   try {
     if(file.size>16*1024*1024)throw new Error('Bản sao lưu vượt quá 16 MB.');
     const archive=JSON.parse(await file.text());
@@ -207,15 +237,25 @@ async function importSave(file) {
       if(total>12*1024*1024)throw new Error('Dữ liệu lưu quá lớn.');
       return {path:'/saves/'+entry.path,data:Uint8Array.from(binary,c=>c.charCodeAt(0))};
     });
-    for(const entry of files) { Module.FS.mkdirTree(entry.path.slice(0,entry.path.lastIndexOf('/')));Module.FS.writeFile(entry.path,entry.data); }
-    await sync();status('Đã khôi phục tiến trình. Bấm Bắt đầu chơi.');
-  } catch(error) { status('Không khôi phục được: '+error,true); }
-  finally { $('start').disabled=!ready; }
+    const previous=filesBelow('/saves').map(path=>({path,data:Module.FS.readFile(path)}));
+    const writeAll=entries=>{
+      for(const path of filesBelow('/saves'))Module.FS.unlink(path);
+      for(const entry of entries){Module.FS.mkdirTree(entry.path.slice(0,entry.path.lastIndexOf('/')));Module.FS.writeFile(entry.path,entry.data);}
+    };
+    try { writeAll(files); await sync(); }
+    catch(error) {writeAll(previous);await sync().catch(log);throw error;}
+    status('Đã khôi phục tiến trình. Bấm Bắt đầu chơi.'); notice('Đã nhập save. Bấm nút chơi để tiếp tục.');
+  } catch(error) { status('Không khôi phục được: '+error,true); notice('Không nhập được save: '+error); }
+  finally { $('start').disabled=!ready; $('restore').disabled=!ready; }
 };
+$('export').onclick=()=>exportSave();
+$('restore').onclick=()=>$('import').click();
+$('import').onchange=async event=>{const file=event.target.files[0];if(file)await importSave(file);event.target.value='';};
 </script>
 {{{ SCRIPT }}}
 </body>
 </html>
+
 
 
 

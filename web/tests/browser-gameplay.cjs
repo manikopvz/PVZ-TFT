@@ -16,7 +16,7 @@ async function main(){
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   const browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader']});
   let failed=false;
-  for(const [scene,name] of [[0,'almanac'],[1,'right-click'],[2,'augment-wave']]){
+  for(const [scene,name] of [[0,'almanac'],[1,'right-click'],[2,'augment-wave'],[3,'dave-alpha']]){
     const context=await browser.newContext({viewport:{width:1280,height:720},hasTouch:true});
     context.setDefaultTimeout(10000);
     const watchdog=setTimeout(()=>{console.error(`${name}: renderer stopped responding; closing isolated context.`);context.close().catch(()=>{});},45000);
@@ -27,7 +27,7 @@ async function main(){
       await page.locator('#start:enabled').waitFor({timeout:120000});await page.locator('#start').click();
       await page.waitForFunction(()=>Module._pvz_web_ready?.()===1,null,{timeout:120000});
       await page.evaluate(scene=>Module._pvz_web_test_setup(scene),scene);
-      if(scene!==0) {
+      if(scene===1 || scene===2) {
         await page.waitForFunction(()=>{Module._pvz_web_test_state();return Module.testState.playing;},null,{timeout:10000});
         if(scene===2)await page.evaluate(()=>Module._pvz_web_test_command(3));
       }
@@ -43,12 +43,30 @@ async function main(){
         await page.waitForTimeout(50);
       };
       await healthy();
-      if(scene===0){
+      if(scene===1 || scene===2)assert((await state()).bushes>=5,'spawn-edge bushes have real animation tracks');
+      if(scene===3){
+        assert.equal(await page.evaluate(()=>Module._pvz_web_test_dave_alpha()),0,'case-insensitive JPG alpha mask matches every Dave pixel');
+        await page.waitForTimeout(1200);await healthy();
+        await page.screenshot({path:'build-web/gameplay-dave-check.png'});
+      } else if(scene===0){
         await page.screenshot({path:'build-web/gameplay-almanac-check.png'});
         assert.equal((await state()).selected,0);
         await click(365,190);await healthy();assert.equal((await state()).selected,1);
         await click(520,640);await healthy();assert.equal((await state()).selected,8);
         await page.screenshot({path:'build-web/gameplay-gifts-check.png'});
+        await page.evaluate(()=>Module._pvz_web_test_command(4));
+        const r=await page.locator('#canvas').boundingBox();
+        const xy=(x,y)=>({x:r.x+x*r.width/1280,y:r.y+y*r.height/720});
+        await page.mouse.move(xy(350,210).x,xy(350,210).y);
+        await page.mouse.wheel(0,100);await healthy();
+        assert((await state()).scroll>0,'desktop wheel reaches the native scrollbar');
+        const beforeScroll=(await state()).scroll;
+        const input=await context.newCDPSession(page);
+        await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[xy(330,240),xy(380,240)]});
+        await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[xy(330,180),xy(380,180)]});
+        await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await input.detach();
+        await healthy();assert((await state()).scroll>beforeScroll,'two-finger swipe scrolls on mobile');
+        assert.equal((await state()).selected,8,'scroll gesture does not select another card');
         await click(960,640);await healthy();assert.equal((await state()).selected,undefined,'Almanac closes on the first tap without a preceding hover frame');
       } else if(scene===1){
         const p=(await state()).packet;
@@ -87,3 +105,4 @@ async function main(){
   if(failed)throw new Error('Native gameplay regressions failed.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
+
