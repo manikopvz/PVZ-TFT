@@ -241,7 +241,43 @@ for method,operation in [('ReadFromRegistry','Read'),('WriteToRegistry','Write')
     s=s[:start]+'\n'+calls+'\n'+s[start:]
 p.write_text(s)
 shutil.copy2(root/'web/runtime.cpp',src/'web_runtime.cpp')
+shutil.copy2(root/'web/tests/runtime.h',src/'web_test_runtime.h')
 shutil.copy2(root/'web/shell.html',out/'wasm/shell.html')
+# A touch tap queues move/down/up in one frame. Manual GameButtons cannot use
+# the previous Update's hover flag for hit-testing (notably Almanac Close).
+p=src/'Lawn/Widget/GameButton.cpp';s=p.read_text()
+s=body(s,'bool GameButton::IsMouseOver()', '''
+    if(mDisabled || mBtnNoDraw)return false;
+    WidgetManager* manager=mApp->mWidgetManager;
+    if(!manager)return false;
+    int x=manager->mLastMouseX, y=manager->mLastMouseY;
+    if(mParentWidget) {
+        Point pos=mParentWidget->GetAbsPos(); x-=pos.mX; y-=pos.mY;
+    }
+    if(mApp->GetDialogCount()>0 && manager->mFocusWidget!=mParentWidget)return false;
+    return Rect(mX,mY,mWidth,mHeight).Contains(x,y);
+''');p.write_text(s)
+# Windows resource names are case-insensitive (IceShroom vs Iceshroom,
+# TwinSunflower vs TwinSunFlower). The portable compiled reader bypasses the
+# framework's case-aware PFILE path with std::ifstream; use PFILE consistently.
+p=src/'Sexy.TodLib/Definition.cpp';s=p.read_text()
+start=s.index('    std::string aFullCompiledPath =',s.index('bool DefinitionReadCompiledFile('))
+end=s.index('    size_t aUncompressedSize;',start)
+s=s[:start]+'''    std::string aFullCompiledPath=DefinitionGetCompiledCacheFullPath(theCompiledFilePath);
+    PFILE* file=p_fopen(aFullCompiledPath.c_str(), "rb");
+    if(!file)file=p_fopen(theCompiledFilePath.c_str(), "rb");
+    if(!file)return false;
+    p_fseek(file,0,SEEK_END);
+    const long length=p_ftell(file);
+    if(length<=0){p_fclose(file);return false;}
+    const size_t aCompressedSize=static_cast<size_t>(length);
+    p_fseek(file,0,SEEK_SET);
+    void* aCompressedBuffer=DefinitionAlloc(aCompressedSize);
+    const bool failed=p_fread(aCompressedBuffer,1,aCompressedSize,file)!=aCompressedSize;
+    p_fclose(file);
+    if(failed){delete[] static_cast<char*>(aCompressedBuffer);return false;}
+
+'''+s[end:];p.write_text(s)
 # Match the projection and mouse presentation rectangle to this game's logical size.
 p=fw/'graphics/GLInterface.cpp';s=p.read_text()
 s=body(s,'void GLInterface::UpdateViewport()', '''
@@ -277,14 +313,20 @@ p=out/'CMakeLists.txt';p.write_text(p.read_text().replace('\\"FS\\",\\"callMain\
 if(NOT EMSCRIPTEN)
  message(FATAL_ERROR "The staged PVZ-TFT target is for Emscripten only")
 endif()
+option(PVZ_WEB_TESTS "Enable isolated browser gameplay test fixtures" OFF)
+if(PVZ_WEB_TESTS)
+ set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/web_runtime.cpp" PROPERTIES COMPILE_DEFINITIONS PVZ_WEB_TESTS)
+endif()
 target_compile_options(pvz-portable PRIVATE -fexceptions)
 target_link_options(pvz-portable PRIVATE
  "SHELL:-fexceptions"
+ "SHELL:-g2"
  "SHELL:-sSTACK_SIZE=8388608"
  "SHELL:-sINITIAL_MEMORY=134217728"
  "SHELL:--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/assets@/"
 )
 set_target_properties(pvz-portable PROPERTIES OUTPUT_NAME "index")
 ''')
+
 
 

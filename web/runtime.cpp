@@ -4,6 +4,7 @@
 #include "Lawn/System/PlayerInfo.h"
 #include "Lawn/System/ProfileMgr.h"
 #include "Lawn/System/SaveGame.h"
+#include "Lawn/Widget/AugmentEncyclopediaDialog.h"
 #include "Lawn/System/Music.h"
 #include "SexyAppFramework/widget/WidgetManager.h"
 #include "SexyAppFramework/widget/EditWidget.h"
@@ -17,6 +18,30 @@ static Sexy::EditWidget* focusedEdit() {
 }
 
 extern "C" {
+// Feed mobile gestures through SDL's real event queue, without depending on
+// browser-generated compatibility mouse events or losing the click count.
+EMSCRIPTEN_KEEPALIVE int pvz_web_pointer(int type, int x, int y, int right, int clicks) {
+    if (!gLawnApp || !gLawnApp->mWindow) return 0;
+    SDL_Event event{};
+    const Uint32 window=SDL_GetWindowID(static_cast<SDL_Window*>(gLawnApp->mWindow));
+    if (type==0) {
+        event.type=SDL_MOUSEMOTION; event.motion.windowID=window;
+        event.motion.x=x; event.motion.y=y;
+    } else {
+        event.type=type==1?SDL_MOUSEBUTTONDOWN:SDL_MOUSEBUTTONUP;
+        event.button.windowID=window; event.button.button=right?SDL_BUTTON_RIGHT:SDL_BUTTON_LEFT;
+        event.button.state=type==1?SDL_PRESSED:SDL_RELEASED;
+        event.button.clicks=static_cast<Uint8>(std::clamp(clicks,1,2));
+        event.button.x=x; event.button.y=y;
+    }
+    return SDL_PushEvent(&event);
+}
+EMSCRIPTEN_KEEPALIVE int pvz_web_updates() { return gLawnApp?gLawnApp->mUpdateCount:0; }
+EMSCRIPTEN_KEEPALIVE int pvz_web_catalog_selection() {
+    if(!gLawnApp)return -1;
+    auto* dialog=static_cast<AugmentEncyclopediaDialog*>(gLawnApp->GetDialog(Dialogs::DIALOG_AUGMENT_ENCYCLOPEDIA));
+    return dialog?dialog->mSelectedAugment:-1;
+}
 // Called only for the tracker's decoded music; SFX cannot satisfy this probe.
 void pvz_web_music_pcm(const void* data, int bytes) {
     const auto* samples = static_cast<const int16_t*>(data);
@@ -96,5 +121,10 @@ EMSCRIPTEN_KEEPALIVE int pvz_web_audio_running() {
     return EM_ASM_INT({ var sdl=Module['SDL2']; return sdl && sdl.audioContext && sdl.audioContext.state === 'running' ? 1 : 0; });
 }
 }
+
+#ifdef PVZ_WEB_TESTS
+#include "web_test_runtime.h"
+#endif
+
 
 

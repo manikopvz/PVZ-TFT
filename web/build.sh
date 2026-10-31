@@ -44,7 +44,7 @@ fi
 python3 "$repo_dir/web/prepare_sources.py" --engine "$engine_dir" --output "$stage_dir"
 python3 "$repo_dir/web/package_assets.py" "$repo_dir/Debug" "$stage_dir/assets"
 emcmake cmake -S "$stage_dir" -B "$build_dir" -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release -DPVZ_DEBUG=OFF -DLIMBO_PAGE=OFF \
+  -DCMAKE_BUILD_TYPE=Release -DPVZ_DEBUG=OFF -DLIMBO_PAGE=OFF -DPVZ_WEB_TESTS="${PVZ_WEB_TESTS:-OFF}" \
   -DOPENMPT_LIBRARY="$music_prefix/lib/libopenmpt.a" \
   -DOpenMPT_LIBRARY="$music_prefix/lib/libopenmpt.a" \
   -DOpenMPT_INCLUDE_DIR="$music_prefix/include" \
@@ -66,5 +66,6 @@ cp "$stage_dir/assets/asset-manifest.json" "$dist_dir/asset-manifest.json"
 touch "$dist_dir/.nojekyll"
 git -C "$repo_dir" rev-parse HEAD > "$dist_dir/source-revision.txt"
 printf 'Built PVZ-TFT WebAssembly: %s\n' "$dist_dir"
+
 
 

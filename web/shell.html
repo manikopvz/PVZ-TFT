@@ -131,8 +131,19 @@ function updateNativeText(event) {
 keyboardInput.addEventListener('input', updateNativeText);
 keyboardInput.addEventListener('compositionend', updateNativeText);
 canvas.addEventListener('contextmenu', event => event.preventDefault());
+let lastTouchClick = {time:0,x:0,y:0,right:false,count:0};
 function touchMouse(type, touch, right = false) {
-  canvas.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:touch.clientX,clientY:touch.clientY,button:right?2:0,buttons:type==='mouseup'?0:(right?2:1)}));
+  if (!started || !Module._pvz_web_pointer) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=Math.round((touch.clientX-rect.left)*canvas.width/rect.width);
+  const y=Math.round((touch.clientY-rect.top)*canvas.height/rect.height);
+  let count=1;
+  if(type==='mousedown') {
+    const now=performance.now();
+    count=lastTouchClick.right===right && now-lastTouchClick.time<500 && Math.hypot(x-lastTouchClick.x,y-lastTouchClick.y)<25 && lastTouchClick.count===1?2:1;
+    lastTouchClick={time:now,x,y,right,count};
+  }
+  Module._pvz_web_pointer(type==='mousemove'?0:type==='mousedown'?1:2,x,y,right?1:0,count);
 }
 let holdTimer, touchOrigin, touchPressed = false, touchHeld = false;
 canvas.addEventListener('touchstart', event => {
@@ -205,5 +216,6 @@ async function importSave(file) {
 {{{ SCRIPT }}}
 </body>
 </html>
+
 
 
