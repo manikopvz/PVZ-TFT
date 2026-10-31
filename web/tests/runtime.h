@@ -36,7 +36,7 @@ EMSCRIPTEN_KEEPALIVE void pvz_web_test_state() {
             card.mX,card.mY,card.mWidth,card.mHeight,roll.mX+roll.mWidth/2,roll.mY+roll.mHeight/2);
     }
     auto& packet=board->mSeedBank->mSeedPackets[1];
-    EM_ASM({Module.testState.packet={x:$0,y:$1};},board->mSeedBank->mX+packet.mX+packet.mOffsetX+packet.mWidth/2,
+    EM_ASM({Module.testState.packet=({x:$0,y:$1});},board->mSeedBank->mX+packet.mX+packet.mOffsetX+packet.mWidth/2,
         board->mSeedBank->mY+packet.mY+packet.mHeight/2);
 }
 }
