@@ -42,6 +42,7 @@ EMSCRIPTEN_KEEPALIVE void pvz_web_keyboard() {
         input.setSelectionRange(Math.min($1,$2),Math.max($1,$2));
     }, edit->mString.c_str(), edit->mCursorPos, edit->mHilitePos<0?edit->mCursorPos:edit->mHilitePos);
 }
+EMSCRIPTEN_KEEPALIVE int pvz_web_text_active() { return focusedEdit() != nullptr; }
 EMSCRIPTEN_KEEPALIVE void pvz_web_set_text(const char* value, int start, int end) {
     auto* edit=focusedEdit();
     if (!edit) return;
@@ -89,6 +90,9 @@ EMSCRIPTEN_KEEPALIVE void pvz_web_resume_audio() {
             SDL2.audioContext.resume().catch(function(e) { console.warn('Audio resume:', e); });
         }
     });
+}
+EMSCRIPTEN_KEEPALIVE int pvz_web_audio_running() {
+    return EM_ASM_INT({ return typeof SDL2 !== 'undefined' && SDL2.audioContext && SDL2.audioContext.state === 'running' ? 1 : 0; });
 }
 }
 

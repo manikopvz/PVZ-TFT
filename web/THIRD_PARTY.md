@@ -12,7 +12,7 @@ The game resources come from this repository's `Debug/` directories. This docume
 
 Play, Keyboard and Maximize are embedded Lucide/Feather SVG icons. No network icon loader is required.
 
-+ISC License
+ISC License
 
 Copyright (c) 2026 Lucide Icons and Contributors
 

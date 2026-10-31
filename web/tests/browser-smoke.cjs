@@ -41,12 +41,15 @@ async function main() {
     await page.waitForFunction(()=>Module._pvz_web_music_playing()>0 && Module._pvz_web_music_samples()>1000,null,{timeout:30000});
     const samples=await page.evaluate(()=>Module._pvz_web_music_samples());
     await page.waitForFunction(before=>Module._pvz_web_music_samples()>before+1000,samples,{timeout:10000});
-    assert.equal(await page.evaluate(()=>SDL2.audioContext.state),'running');
+    assert.equal(await page.evaluate(()=>Module._pvz_web_audio_running()),1);
     // Enter the real new-profile dialog using game input, then exercise the
     // mobile input bridge, native deletion/length validation, and Enter.
-    await page.waitForTimeout(1500);
-    await page.locator('#canvas').click({position:{x:300,y:200}});
-    await page.waitForTimeout(1000);
+    for(let attempt=0;attempt<20;attempt++) {
+      await page.locator('#canvas').click({position:{x:300,y:200}});
+      await page.waitForTimeout(500);
+      if(await page.evaluate(()=>Module._pvz_web_text_active()))break;
+    }
+    await page.locator('#keyboard:enabled').waitFor();
     await page.locator('#keyboard').click();
     await page.waitForFunction(()=>document.activeElement.id==='pvz-soft-keyboard');
     await page.locator('#pvz-soft-keyboard').fill('MobileTest');
@@ -60,6 +63,12 @@ async function main() {
     // No labels, headers, save toolbar, or footer around the game.
     assert.equal(await page.locator('button:visible').count(),2);
     assert.deepEqual(await page.locator('button:visible').allTextContents(),['','']);
+    await page.locator('#fullscreen').click();
+    await page.waitForFunction(()=>document.fullscreenElement?.id==='stage');
+    const fullBox=await page.locator('#canvas').boundingBox();
+    assert(Math.abs(fullBox.width/fullBox.height-16/9)<0.01);
+    await page.locator('#fullscreen').click();
+    await page.waitForFunction(()=>!document.fullscreenElement);
     for(const viewport of [{width:390,height:844},{width:844,height:390},{width:1360,height:1000}]) {
       await page.setViewportSize(viewport);
       const box=await page.locator('#canvas').boundingBox();

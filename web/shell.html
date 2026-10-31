@@ -46,7 +46,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const canvas = $('canvas');
-let ready = false, started = false, mounted = false, rightClick = false, syncQueue = Promise.resolve();
+let ready = false, started = false, mounted = false, syncQueue = Promise.resolve();
 let gameTimer, activeTouch = null, loadingFailed = false;
 function log(message) { $('log').textContent = ($('log').textContent + message + '\n').slice(-18000); }
 function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); }
@@ -103,6 +103,7 @@ $('start').onclick = () => {
 };
 
 setInterval(() => { if (started) save(false).catch(log); }, 20000);
+setInterval(() => { if (started && Module._pvz_web_text_active) $('keyboard').disabled = !Module._pvz_web_text_active(); }, 250);
 document.addEventListener('visibilitychange', () => { if (document.hidden && started) save(false).catch(log); });
 window.addEventListener('pagehide', () => { if (started) save(false).catch(log); });
 document.addEventListener('pointerdown', () => { if (started) Module._pvz_web_resume_audio(); }, {passive:true});
@@ -130,20 +131,33 @@ function updateNativeText(event) {
 keyboardInput.addEventListener('input', updateNativeText);
 keyboardInput.addEventListener('compositionend', updateNativeText);
 canvas.addEventListener('contextmenu', event => event.preventDefault());
-function touchMouse(type, touch) {
-  canvas.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:touch.clientX,clientY:touch.clientY,button:rightClick?2:0,buttons:type==='mouseup'?0:(rightClick?2:1)}));
+function touchMouse(type, touch, right = false) {
+  canvas.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:touch.clientX,clientY:touch.clientY,button:right?2:0,buttons:type==='mouseup'?0:(right?2:1)}));
 }
+let holdTimer, touchOrigin, touchPressed = false, touchHeld = false;
 canvas.addEventListener('touchstart', event => {
   event.preventDefault(); event.stopImmediatePropagation();
   if (activeTouch!==null || !event.changedTouches.length) return;
   const touch=event.changedTouches[0]; activeTouch=touch.identifier;
-  touchMouse('mousemove',touch); touchMouse('mousedown',touch); canvas.focus();
+  touchOrigin={clientX:touch.clientX,clientY:touch.clientY}; touchPressed=false; touchHeld=false;
+  touchMouse('mousemove',touch); canvas.focus();
+  // Hold for right-click without adding another control over the game.
+  holdTimer=setTimeout(()=>{touchHeld=true;touchMouse('mousedown',touchOrigin,true);touchMouse('mouseup',touchOrigin,true);},350);
 }, {capture:true,passive:false});
 for (const type of ['touchmove','touchend','touchcancel']) canvas.addEventListener(type, event => {
   event.preventDefault(); event.stopImmediatePropagation();
   for (const touch of event.changedTouches) if (touch.identifier===activeTouch) {
-    touchMouse(type==='touchmove'?'mousemove':'mouseup',touch);
-    if(type!=='touchmove') activeTouch=null;
+    if (type==='touchmove') {
+      if (!touchHeld && !touchPressed && Math.hypot(touch.clientX-touchOrigin.clientX,touch.clientY-touchOrigin.clientY)>10) {
+        clearTimeout(holdTimer); touchPressed=true; touchMouse('mousedown',touchOrigin);
+      }
+      if(touchPressed)touchMouse('mousemove',touch);
+    } else {
+      clearTimeout(holdTimer);
+      if(!touchHeld && type==='touchend' && !touchPressed)touchMouse('mousedown',touch);
+      if(touchPressed || (!touchHeld && type==='touchend'))touchMouse('mouseup',touch);
+      activeTouch=null;
+    }
   }
 }, {capture:true,passive:false});
 function filesBelow(path) {
