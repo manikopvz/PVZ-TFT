@@ -61,6 +61,19 @@ jobs:
           name: pvz-tft-web
           path: build-web/dist
           retention-days: 14
+      - name: Package prebuilt Vercel deployment
+        run: python3 web/package_vercel.py build-web/dist build-web/vercel-dist
+      - name: Verify the packaged Vercel game
+        env:
+          PVZ_EXPECT_PRODUCTION: '1'
+        run: NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-smoke.cjs build-web/vercel-dist/.vercel/output/static
+      - name: Upload prebuilt Vercel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pvz-tft-vercel
+          path: build-web/vercel-dist/
+          include-hidden-files: true
+          retention-days: 14
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
@@ -108,3 +121,26 @@ jobs:
           path: build-web/live-game.png
           retention-days: 14
 
+
+
+  deploy-vercel:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_VERCEL == 'true'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pvz-tft-vercel
+          path: vercel-dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deploy the tested prebuilt game
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          test -n "$VERCEL_TOKEN" && test -n "$VERCEL_ORG_ID" && test -n "$VERCEL_PROJECT_ID"
+          npx --yes vercel@58.4.4 deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN" --cwd vercel-dist

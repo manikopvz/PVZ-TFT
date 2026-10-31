@@ -30,6 +30,16 @@ for name in ['Music.cpp','Music.h']:
     shutil.copy2(engine/'src/Lawn/System'/name,src/'Lawn/System'/name)
 for name in ['PoolEffect.cpp','PoolEffect.h']:
     shutil.copy2(engine/'src/Lawn/System'/name,src/'Lawn/System'/name)
+# Preserve this repository's animation registry (including Flag and six bushes),
+# while keeping the portable loader/renderer implementation.
+p=src/'Sexy.TodLib/Reanimator.cpp';s=p.read_text()
+original=(root/'Sexy.TodLib/Reanimator.cpp').read_text(encoding='utf-8-sig')
+registry=re.search(r'ReanimationParams gLawnReanimationArray\[[^;]+?\n};',original,re.S)
+if not registry:raise RuntimeError('Missing original reanimation registry')
+replacement=registry[0].replace('\\\\','/')
+s,n=re.subn(r'ReanimationParams gLawnReanimationArray\[[^;]+?\n};',lambda m:replacement,s,count=1,flags=re.S)
+if n!=1:raise RuntimeError('Missing portable reanimation registry')
+p.write_text(s)
 # Restore legacy include locations as forwarding headers.
 fw=src/'SexyAppFramework'
 for name in ['ButtonListener.h','CheckboxListener.h','SliderListener.h','EditListener.h','DialogListener.h','ListListener.h','Slider.cpp','Slider.h']:
@@ -278,6 +288,13 @@ s=s[:start]+'''    std::string aFullCompiledPath=DefinitionGetCompiledCacheFullP
     if(failed){delete[] static_cast<char*>(aCompressedBuffer);return false;}
 
 '''+s[end:];p.write_text(s)
+# The atlas loader must discover separate alpha masks through the same
+# case-insensitive PFILE lookup as the base JPG/PNG, including explicit suffixes.
+p=fw/'imagelib/ImageLib.cpp';s=p.read_text()
+s=body(s,'static bool CheckSinglePath(', '\n if(thePath.empty())return false;\n std::string path(thePath);\n PFILE* file=p_fopen(path.c_str(), "rb");\n if(!file)return false;\n p_fclose(file); return true;\n')
+s=s.replace("const auto slashEnd = (aLastSlashPos != std::string::npos) ? aLastSlashPos + 1 : 0;", "const auto slashEnd = (aFilename.rfind('/') != std::string::npos) ? aFilename.rfind('/') + 1 : 0;")
+s=s.replace('theFilename.substr(0, slashEnd) + "_" +', 'aFilename.substr(0, slashEnd) + "_" +').replace('theFilename.substr(slashEnd);','aFilename.substr(slashEnd);').replace('alphaPath2 = theFilename + "_"','alphaPath2 = aFilename + "_"')
+p.write_text(s)
 # Match the projection and mouse presentation rectangle to this game's logical size.
 p=fw/'graphics/GLInterface.cpp';s=p.read_text()
 s=body(s,'void GLInterface::UpdateViewport()', '''
@@ -296,7 +313,8 @@ s=body(s,'EM_JS(void, WasmStartSoftKeyboard,', '/* Opened synchronously by the k
 s=body(s,'EM_JS(void, WasmStopSoftKeyboard,', '''
  var input=document.getElementById('pvz-soft-keyboard');
  if(input && document.activeElement===input) input.blur();
-''');p.write_text(s)
+''');s=s.replace('case SDL_MOUSEMOTION:', 'case SDL_MOUSEWHEEL: { int x=event.wheel.x, y=event.wheel.y; if(event.wheel.direction==SDL_MOUSEWHEEL_FLIPPED){x=-x;y=-y;} mWidgetManager->MouseWheel(y!=0?y:x); break; }\n case SDL_MOUSEMOTION:',1)
+p.write_text(s)
 # Count decoded background-music PCM independently of sound effects for smoke tests.
 p=fw/'sound/SDL-Mixer-X/src/codecs/music_openmpt.c';s=p.read_text()
 s=s.replace('static int OPENMPT_GetAudio(void *context, void *data, int bytes)', 'extern void pvz_web_music_pcm(const void *data, int bytes);\nstatic int OPENMPT_GetAudio(void *context, void *data, int bytes)')
@@ -327,6 +345,7 @@ target_link_options(pvz-portable PRIVATE
 )
 set_target_properties(pvz-portable PROPERTIES OUTPUT_NAME "index")
 ''')
+
 
 
 

@@ -26,11 +26,11 @@ No SharedArrayBuffer, pthreads, cross-origin-isolation headers, backend server o
 
 ## Controls and saves
 
-The page contains only the game canvas, a centered play icon after loading, and keyboard/fullscreen icons in the upper corner. Click the play icon to unlock browser audio and start the game. The renderer uses the original 1280×720 logical size with a matching 16:9 GL viewport and mouse mapping. Smaller screens fit the whole canvas without stretching; only unused space outside the canvas may be black.
+The page contains only the game canvas, a centered play icon after loading, and backup/import/keyboard/fullscreen icons in a separate rail below the canvas (also in fullscreen). Click the play icon to unlock browser audio and start the game. The renderer uses the original 1280×720 logical size with a matching 16:9 GL viewport and mouse mapping. Smaller screens fit the whole canvas without stretching; only unused space outside the canvas may be black.
 
-Mouse and keyboard retain the game's controls. On touchscreens, tap for left-click, drag normally, or hold for 350 ms for right-click (two successive holds provide the Bench sell gesture).  On mobile, select the username field in the game and tap the keyboard icon to open the system keyboard. Text, deletion, paste and Enter go through the native EditWidget validation and length limit. The existing bitmap font supports ASCII usernames. Browser gamepad input uses SDL2 without consuming the engine's mouse/keyboard event queue.
+Mouse and keyboard retain the game's controls. On touchscreens, tap for left-click, drag normally, or hold for 350 ms for right-click (two successive holds provide the Bench sell gesture). Swipe vertically with two fingers over a scrollable panel to scroll; a single finger still selects or drags game objects. Desktop wheel events also reach native scrollbars.  On mobile, select the username field in the game and tap the keyboard icon to open the system keyboard. Text, deletion, paste and Enter go through the native EditWidget validation and length limit. The existing bitmap font supports ASCII usernames. Browser gamepad input uses SDL2 without consuming the engine's mouse/keyboard event queue.
 
-Saves and configuration live under `/saves/` in IndexedDB and restore before play becomes available. The app checkpoints every 20 seconds and when the tab becomes hidden. Save/backup controls are no longer displayed. Advanced backup helpers remain available as `exportSave()` and `importSave(file)` in the browser console. Closing a tab can interrupt the last asynchronous write. Existing Windows saves are not promised compatible with this build's data layout.
+Saves and configuration live under `/saves/` in IndexedDB and restore before play becomes available. The app checkpoints every 20 seconds and when the tab becomes hidden. Use the download icon to export a JSON backup, including the current checkpoint while playing. To restore, reload the page and use the upload icon before pressing Play; import is disabled once the game starts. Validated imports replace previous save files, with rollback if writing fails. Keep backups outside browser storage. Saves belong to the site origin, so export on Pages before importing on Vercel. Closing a tab can interrupt the last asynchronous write. Existing Windows saves are not promised compatible with this build's data layout.
 
 Background music requires the statically linked OpenMPT decoder in SDL-Mixer-X, configured with its case-sensitive `OpenMPT_LIBRARY` and `OpenMPT_INCLUDE_DIR` variables. Configuration now fails if the decoder is omitted. The smoke test requires an active music stream and increasing nonzero decoded music PCM, independently of SFX.
 
@@ -54,3 +54,10 @@ Mobile taps, drags and 350 ms right-click holds enter SDL's mouse event queue di
 CI additionally builds with `PVZ_WEB_TESTS=ON` to run `web/tests/browser-gameplay.cjs`. Isolated native fixtures exercise trusted touch holds, Shop locking/tutorial progression, Bench selling, Almanac selection and wave-3 Augment reroll/selection/resume. CI then turns that option off, rebuilds the runtime, and smoke-tests the exact production files. The production and public-site checks assert that fixture exports are absent and open the Almanac through its actual menu button.
 
 
+
+
+## Vercel
+
+See [VERCEL.md](VERCEL.md) for Vietnamese migration instructions. CI produces `pvz-tft-vercel`, a tested Build Output API v3 artifact containing `.vercel/output`. Deploy it with `vercel deploy --prebuilt --prod`; Vercel does not need Emscripten or a server. The optional `deploy-vercel` job is off until the repository variable `DEPLOY_VERCEL=true` and the documented project IDs/token are configured. Pages remains available during migration.
+
+The staged renderer preserves the original TFT reanimation registry, including all six spawn-edge bushes. Separate image alpha masks use case-insensitive asset lookup and extensionless names, including Crazy Dave's JPG body. CI checks loaded bush animation tracks, compares every Dave alpha pixel with its separate PNG mask, captures the store animation, and tests native desktop/mobile scrolling.
