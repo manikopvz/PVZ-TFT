@@ -105,7 +105,8 @@ $('start').onclick = () => {
   $('save').disabled = false;
   gameTimer = setInterval(() => {
     const state = Module._pvz_web_ready();
-    if (state < 0) { clearInterval(gameTimer); failure('Không tải được tài nguyên game; xem thông tin chẩn đoán.'); }
+    if (state === -2) { clearInterval(gameTimer); failure('Không khởi tạo được đồ họa WebGL. Hãy bật tăng tốc đồ họa của trình duyệt hoặc thử Chrome/Edge.'); }
+    else if (state < 0) { clearInterval(gameTimer); failure('Không tải được tài nguyên game; xem thông tin chẩn đoán.'); }
     else if (state === 1) { clearInterval(gameTimer); status('Game đã sẵn sàng.'); }
   }, 500);
 };

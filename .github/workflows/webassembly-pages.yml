@@ -55,6 +55,8 @@ jobs:
     permissions:
       pages: write
       id-token: write
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -65,3 +67,24 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
+
+  verify-live:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the public Pages game and browser saves
+        env:
+          LIVE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          npm install --prefix build-web/browser-test playwright@1.51.1
+          build-web/browser-test/node_modules/.bin/playwright install --with-deps chromium
+          NODE_PATH="$PWD/build-web/browser-test/node_modules" PVZ_SMOKE_SCREENSHOT="$PWD/build-web/live-game.png" node web/tests/browser-smoke.cjs "$LIVE_URL"
+      - name: Upload live game screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: pvz-tft-live-check
+          path: build-web/live-game.png
+          retention-days: 14

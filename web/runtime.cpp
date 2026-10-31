@@ -23,6 +23,7 @@ EMSCRIPTEN_KEEPALIVE void pvz_web_save() {
 
 EMSCRIPTEN_KEEPALIVE int pvz_web_ready() {
     if (!gLawnApp || gLawnApp->mLoadingFailed) return -1;
+    if (gLawnApp->mShutdown && !gLawnApp->mInitialized) return -2;
     return gLawnApp->mLoaded ? 1 : 0;
 }
 
