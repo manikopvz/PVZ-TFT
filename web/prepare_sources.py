@@ -242,7 +242,38 @@ for method,operation in [('ReadFromRegistry','Read'),('WriteToRegistry','Write')
 p.write_text(s)
 shutil.copy2(root/'web/runtime.cpp',src/'web_runtime.cpp')
 shutil.copy2(root/'web/shell.html',out/'wasm/shell.html')
-p=out/'CMakeLists.txt';p.write_text(p.read_text()+'''
+# Match the projection and mouse presentation rectangle to this game's logical size.
+p=fw/'graphics/GLInterface.cpp';s=p.read_text()
+s=body(s,'void GLInterface::UpdateViewport()', '''
+ int width=0, height=0;
+ SDL_GL_GetDrawableSize((SDL_Window*)mApp->mWindow, &width, &height);
+ int vw=width, vh=height;
+ if ((int64_t)width*mHeight > (int64_t)height*mWidth) vw=height*mWidth/mHeight;
+ else if ((int64_t)width*mHeight < (int64_t)height*mWidth) vh=width*mHeight/mWidth;
+ int vx=(width-vw)/2, vy=(height-vh)/2;
+ glViewport(vx,vy,vw,vh);
+ mPresentationRect=Rect(vx,vy,vw,vh);
+''');p.write_text(s)
+# The shell owns mobile IME input. Do not also enqueue text through SDL's helper.
+p=fw/'platform/default/Input.cpp';s=p.read_text()
+s=body(s,'EM_JS(void, WasmStartSoftKeyboard,', '/* Opened synchronously by the keyboard icon to satisfy mobile gesture rules. */')
+s=body(s,'EM_JS(void, WasmStopSoftKeyboard,', '''
+ var input=document.getElementById('pvz-soft-keyboard');
+ if(input && document.activeElement===input) input.blur();
+''');p.write_text(s)
+# Count decoded background-music PCM independently of sound effects for smoke tests.
+p=fw/'sound/SDL-Mixer-X/src/codecs/music_openmpt.c';s=p.read_text()
+s=s.replace('static int OPENMPT_GetAudio(void *context, void *data, int bytes)', 'extern void pvz_web_music_pcm(const void *data, int bytes);\nstatic int OPENMPT_GetAudio(void *context, void *data, int bytes)')
+s=body(s,'static int OPENMPT_GetAudio(', '''
+ int remaining=music_pcm_getaudio(context, data, bytes, MIX_MAX_VOLUME, OPENMPT_GetSome);
+ pvz_web_music_pcm(data, bytes-remaining);
+ return remaining;
+''');p.write_text(s)
+p=fw/'sound/SDL-Mixer-X/src/codecs/music_openmpt.cmake'
+p.write_text(p.read_text().replace('message("-- skipping libopenmpt --")', 'message(FATAL_ERROR "The browser music decoder must be enabled in SDL-Mixer-X")'))
+# Keep the in-game fullscreen option on the same element as the icon controls.
+p=fw/'platform/emscripten/Window.cpp';p.write_text(p.read_text().replace('#canvas-container','#stage'))
+p=out/'CMakeLists.txt';p.write_text(p.read_text().replace('\\"FS\\",\\"callMain\\"', '\\"FS\\",\\"callMain\\",\\"ccall\\"')+'''
 if(NOT EMSCRIPTEN)
  message(FATAL_ERROR "The staged PVZ-TFT target is for Emscripten only")
 endif()
@@ -255,4 +286,5 @@ target_link_options(pvz-portable PRIVATE
 )
 set_target_properties(pvz-portable PROPERTIES OUTPUT_NAME "index")
 ''')
+
 

@@ -20,11 +20,11 @@ async function main() {
     res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');fs.createReadStream(file).pipe(res);
   });
   if(server)await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  let browser;
+  let browser, page;
   try {
     browser=await chromium.launch({headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader',...(process.env.PVZ_BROWSER_SINGLE_PROCESS?['--single-process','--no-zygote']:[])]});
     const context=await browser.newContext({viewport:{width:1360,height:1000}});
-    const page=await context.newPage();
+    page=await context.newPage();
     page.on('pageerror',error=>errors.push(error.message));
     page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
     page.on('response',response=>{if(response.status()>=400 && !response.url().endsWith('favicon.ico'))errors.push(`${response.status()} ${response.url()}`);});
@@ -35,6 +35,47 @@ async function main() {
     try {
       await page.waitForFunction(()=>window.Module && Module._pvz_web_ready && Module._pvz_web_ready()===1,null,{timeout:120000});
     } catch(error) {console.error(await page.locator('#log').textContent());throw error;}
+    // Check the actual GL viewport, not merely the canvas dimensions (the old
+    // renderer squeezed a 16:9 projection into a 4:3 presentation rectangle).
+    assert.deepEqual(await page.evaluate(()=>{const gl=Module.canvas.getContext('webgl');return Array.from(gl.getParameter(gl.VIEWPORT));}),[0,0,1280,720]);
+    await page.waitForFunction(()=>Module._pvz_web_music_playing()>0 && Module._pvz_web_music_samples()>1000,null,{timeout:30000});
+    const samples=await page.evaluate(()=>Module._pvz_web_music_samples());
+    await page.waitForFunction(before=>Module._pvz_web_music_samples()>before+1000,samples,{timeout:10000});
+    assert.equal(await page.evaluate(()=>Module._pvz_web_audio_running()),1);
+    // Enter the real new-profile dialog using game input, then exercise the
+    // mobile input bridge, native deletion/length validation, and Enter.
+    for(let attempt=0;attempt<20;attempt++) {
+      await page.locator('#canvas').click({position:{x:300,y:200}});
+      await page.waitForTimeout(500);
+      if(await page.evaluate(()=>Module._pvz_web_text_active()))break;
+    }
+    await page.locator('#keyboard:enabled').waitFor();
+    await page.locator('#keyboard').click();
+    await page.waitForFunction(()=>document.activeElement.id==='pvz-soft-keyboard');
+    await page.locator('#pvz-soft-keyboard').fill('MobileTest');
+    await page.locator('#pvz-soft-keyboard').fill('Mobile');
+    await page.locator('#keyboard').click();
+    await page.locator('#keyboard').click();
+    assert.equal(await page.locator('#pvz-soft-keyboard').inputValue(),'Mobile');
+    await page.locator('#pvz-soft-keyboard').press('Enter');
+    await page.waitForTimeout(600);
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'canvas');
+    // No labels, headers, save toolbar, or footer around the game.
+    assert.equal(await page.locator('button:visible').count(),2);
+    assert.deepEqual(await page.locator('button:visible').allTextContents(),['','']);
+    await page.locator('#fullscreen').click();
+    await page.waitForFunction(()=>document.fullscreenElement?.id==='stage');
+    const fullBox=await page.locator('#canvas').boundingBox();
+    assert(Math.abs(fullBox.width/fullBox.height-16/9)<0.01);
+    await page.locator('#fullscreen').click();
+    await page.waitForFunction(()=>!document.fullscreenElement);
+    for(const viewport of [{width:390,height:844},{width:844,height:390},{width:1360,height:1000}]) {
+      await page.setViewportSize(viewport);
+      const box=await page.locator('#canvas').boundingBox();
+      assert(Math.abs(box.width/box.height-16/9)<0.01);
+      assert(box.width<=viewport.width+1 && box.height<=viewport.height+1);
+      assert.deepEqual(await page.evaluate(()=>{const gl=Module.canvas.getContext('webgl');return Array.from(gl.getParameter(gl.VIEWPORT));}),[0,0,1280,720]);
+    }
     if(process.env.PVZ_SMOKE_SCREENSHOT)await page.screenshot({path:process.env.PVZ_SMOKE_SCREENSHOT});
     assert.equal(await page.locator('#canvas').getAttribute('width'),'1280');
     assert.equal(await page.locator('#canvas').getAttribute('height'),'720');
@@ -43,20 +84,20 @@ async function main() {
     await page.evaluate(async()=>{Module.FS.writeFile('/saves/web-smoke.txt','persistent');await save(false);});
     await page.reload();await page.locator('#start:enabled').waitFor({timeout:120000});
     assert.equal(await page.evaluate(()=>Module.FS.readFile('/saves/web-smoke.txt',{encoding:'utf8'})),'persistent');
-    const downloadPromise=page.waitForEvent('download');await page.locator('#export').click();
+    const downloadPromise=page.waitForEvent('download');await page.evaluate(()=>exportSave());
     const download=await downloadPromise;
     const archive=JSON.parse(fs.readFileSync(await download.path(),'utf8'));
     assert.equal(archive.format,'pvz-tft-web-save');assert(archive.files.some(x=>x.path==='web-smoke.txt'));
     await page.evaluate(()=>Module.FS.unlink('/saves/web-smoke.txt'));
-    await page.locator('#import').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(archive))});
+    await page.evaluate(data=>importSave(new File([JSON.stringify(data)],'backup.json',{type:'application/json'})),archive);
     await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Đã khôi phục'));
     assert.equal(await page.evaluate(()=>Module.FS.readFile('/saves/web-smoke.txt',{encoding:'utf8'})),'persistent');
-    await page.locator('#import').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'pvz-tft-web-save',version:1,files:[{path:'../outside',data:'AA=='}]}))});
+    await page.evaluate(()=>importSave(new File([JSON.stringify({format:'pvz-tft-web-save',version:1,files:[{path:'../outside',data:'AA=='}]})],'invalid.json',{type:'application/json'})));
     await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Không khôi phục được'));
     assert.equal(await page.evaluate(()=>Module.FS.analyzePath('/outside').exists),false);
     assert.equal(await page.locator('#start').isEnabled(),true);
     const version=await page.evaluate(()=>typeof SharedArrayBuffer);
-    console.log(`Browser startup, 1280x720 canvas, Pages subpath, IndexedDB, save export/import and traversal rejection passed (SharedArrayBuffer: ${version}).`);
+    console.log(`Browser startup, full 1280x720 GL viewport, decoded music PCM, mobile username editing, responsive canvas, Pages subpath, IndexedDB, save backup helpers and traversal rejection passed (SharedArrayBuffer: ${version}).`);
     assert.deepEqual(errors,[]);
     await context.close();
     if(!liveUrl) {
@@ -68,7 +109,15 @@ async function main() {
       assert.equal(await graphicsPage.evaluate(()=>Module._pvz_web_ready()),-2);
       await graphicsContext.close();console.log('Unavailable WebGL reports a clear startup error.');
     }
+  } catch(error) {
+    if(page && !page.isClosed()) {
+      console.error(await page.locator('#log').textContent().catch(()=>''));
+      console.error(await page.evaluate(()=>({status:document.getElementById('status')?.textContent,active:document.activeElement?.id,music:Module._pvz_web_music_playing?.(),samples:Module._pvz_web_music_samples?.(),audio:Module['SDL2']?.audioContext?.state,editing:Module._pvz_web_text_active?.()})).catch(()=>({})));
+      if(process.env.PVZ_SMOKE_SCREENSHOT)await page.screenshot({path:process.env.PVZ_SMOKE_SCREENSHOT}).catch(()=>{});
+    }
+    throw error;
   } finally {if(browser)await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
+
 

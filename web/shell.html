@@ -7,58 +7,50 @@
   <title>PVZ · TFT</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; background: #101d16; color: #eaf4de; font: 15px system-ui,sans-serif; }
-    main { max-width: 1440px; margin: auto; padding: 18px; }
-    header { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 14px; }
-    h1 { font-size: 23px; letter-spacing: .04em; margin: 0 auto 0 0; }
-    h1 span { color: #b6d56a; }
-    button, .file-button { background: #243b28; color: inherit; border: 1px solid #52634a; padding: 10px 16px; border-radius: 8px; font: inherit; cursor: pointer; }
-    button:disabled, .file-button:has(input:disabled) { opacity: .45; cursor: default; }
-    button:hover:enabled { background: #355031; }
-    button:focus-visible, .file-button:focus-within { outline: 3px solid #cae784; outline-offset: 3px; }
-    #start { background: #b6d56a; color: #142015; font-weight: 700; }
-    #right[aria-pressed="true"] { background: #886038; }
-    #stage { background: #071009; width: 100%; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; border: 1px solid #354b35; border-radius: 12px; overflow: hidden; }
-    canvas { display: block; max-width: 100%; max-height: 100%; width: 100%; height: auto; aspect-ratio: 16/9; object-fit: contain; touch-action: none; }
-    #stage:fullscreen { width: 100vw; height: 100vh; border: 0; border-radius: 0; }
-    #stage:fullscreen canvas { width: min(100vw,177.7778vh); max-height: 100vh; }
-    .tools { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
-    #status { min-height: 24px; margin: 12px 0 6px; color: #bdd2b0; }
-    #status.error { color: #ffb6a7; }
-    progress { width: 100%; height: 8px; accent-color: #b6d56a; }
-    .help { color: #98ad91; line-height: 1.6; margin-top: 14px; }
-    .file-button input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-    a { color: #c6df91; }
-    details { margin-top: 16px; color: #98ad91; }
-    pre { max-height: 180px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
-    @media(max-width:650px) { main { padding: 10px; } header { gap: 9px; } h1 { font-size: 20px; } button,.file-button { padding: 9px 12px; } }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; }
+    body { display: grid; place-items: center; font: 16px system-ui,sans-serif; }
+    #stage { position: relative; width: min(100vw, calc(100dvh * 16 / 9)); aspect-ratio: 16 / 9; background: #000; }
+    canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; outline: none; }
+    #stage:fullscreen { width: 100vw; height: 100dvh; display: grid; place-items: center; }
+    #stage:fullscreen canvas { width: min(100vw, calc(100dvh * 16 / 9)) !important; height: min(100dvh, calc(100vw * 9 / 16)) !important; }
+    button { display: grid; place-items: center; border: 0; border-radius: 50%; padding: 0; width: 44px; height: 44px; background: #1119; color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    button:hover { background: #333c; }
+    button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+    button:disabled { opacity: .35; cursor: default; }
+    button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+    #start { position: absolute; z-index: 2; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 80px; height: 80px; background: #111c; }
+    #start svg { width: 38px; height: 38px; fill: currentColor; }
+    #controls { position: absolute; z-index: 3; right: max(8px,env(safe-area-inset-right)); top: max(8px,env(safe-area-inset-top)); display: flex; gap: 6px; }
+    #loading { position: absolute; left: calc(50% - 18px); top: calc(50% - 18px); width: 36px; height: 36px; border: 3px solid #fff3; border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    #status.error { z-index: 4; left: 10%; top: 35%; width: 80%; height: auto; clip-path: none; padding: 20px; margin: 0; background: #151515ed; border-radius: 10px; text-align: center; line-height: 1.5; }
+    #pvz-soft-keyboard { position: absolute; left: 50%; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: .01; font-size: 16px; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
-<main>
-  <header><h1>PVZ <span>· TFT</span></h1><button id="start" disabled>Đang tải…</button><button id="fullscreen">Toàn màn hình</button></header>
-  <div id="stage"><canvas id="canvas" width="1280" height="720" tabindex="0" aria-label="Plants vs. Zombies TFT"></canvas></div>
-  <p id="status" role="status" aria-live="polite">Đang tải WebAssembly và tài nguyên game…</p>
-  <progress id="progress"></progress>
-  <div class="tools">
-    <button id="save" disabled>Lưu tiến trình</button>
-    <button id="export" disabled>Tải bản sao lưu</button>
-    <label class="file-button">Khôi phục bản sao lưu<input id="import" type="file" accept=".json,application/json" disabled></label>
-    <button id="right" aria-pressed="false">Cảm ứng: chuột trái</button>
+<div id="stage">
+  <canvas id="canvas" width="1280" height="720" tabindex="0" aria-label="Plants vs. Zombies TFT"></canvas>
+  <div id="loading" role="progressbar" aria-label="Đang tải game"></div>
+  <button id="start" aria-label="Chơi ngay" title="Chơi ngay" disabled hidden><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
+  <div id="controls">
+    <button id="keyboard" aria-label="Bật bàn phím" title="Bật bàn phím" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 15h8"/></svg></button>
+    <button id="fullscreen" aria-label="Toàn màn hình" title="Toàn màn hình"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg></button>
   </div>
-  <p class="help">Chuột trái để chọn và trồng; chuột phải để hủy. Nhấp đúp chuột phải vào Bench để bán cây. Trên màn hình cảm ứng, đổi nút chuột bằng nút phía trên.<br>Tiến trình được lưu trên trình duyệt này. Tải bản sao lưu trước khi xóa dữ liệu trình duyệt hoặc chuyển thiết bị.</p>
-  <details><summary>Thông tin chẩn đoán</summary><pre id="log"></pre></details>
-  <p class="help"><a href="https://github.com/manikopvz/PVZ-TFT">Mã nguồn PVZ-TFT</a> · Lớp nền web dựa trên <a href="https://github.com/wszqkzqk/PvZ-Portable">PvZ-Portable</a> · <a href="licenses/README.md">Thông tin giấy phép</a></p>
-</main>
+  <input id="pvz-soft-keyboard" type="text" aria-label="Tên người chơi" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" tabindex="-1">
+  <p id="status" role="status" aria-live="polite">Đang tải game…</p>
+  <pre id="log" hidden></pre>
+</div>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const canvas = $('canvas');
-let ready = false, started = false, mounted = false, rightClick = false, syncQueue = Promise.resolve();
+let ready = false, started = false, mounted = false, syncQueue = Promise.resolve();
 let gameTimer, activeTouch = null, loadingFailed = false;
 function log(message) { $('log').textContent = ($('log').textContent + message + '\n').slice(-18000); }
 function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); }
-function failure(error) { loadingFailed = true; log(String(error)); status('Game gặp lỗi: ' + String(error), true); $('progress').hidden = true; }
+function failure(error) { loadingFailed = true; log(String(error)); status('Game gặp lỗi: ' + String(error), true); $('loading').hidden = true; }
 function sync(populate = false) {
   const task = syncQueue.then(() => new Promise((resolve,reject) => {
     Module.FS.syncfs(populate, error => error ? reject(error) : resolve());
@@ -78,7 +70,7 @@ var Module = {
   onAbort: reason => failure(reason),
   setStatus: message => { if (!started && !loadingFailed && message) status(message); },
   monitorRunDependencies: remaining => {
-    if (remaining) { $('progress').removeAttribute('value'); }
+    if (remaining) $('loading').hidden = false;
   },
   onRuntimeInitialized: async () => {
     try {
@@ -86,9 +78,8 @@ var Module = {
       Module.FS.mount(Module.FS.filesystems.IDBFS, {}, '/saves'); mounted = true;
       await sync(true);
       ready = true;
-      $('start').disabled = false; $('start').textContent = 'Bắt đầu chơi';
-      $('import').disabled = false; $('export').disabled = false;
-      $('progress').hidden = true; status('Sẵn sàng. Bấm Bắt đầu chơi.');
+      $('start').disabled = false; $('start').hidden = false;
+      $('loading').hidden = true; status('Sẵn sàng. Bấm Bắt đầu chơi.');
     } catch (error) {
       // A denied IndexedDB must not overwrite an existing save with an empty filesystem.
       failure('Không mở được bộ nhớ lưu game. Hãy cho phép dữ liệu trang web rồi tải lại. ' + error);
@@ -97,21 +88,22 @@ var Module = {
 };
 $('start').onclick = () => {
   if (!ready || started) return;
-  started = true; $('start').disabled = true; $('start').textContent = 'Đang chơi'; $('import').disabled = true;
+  started = true; $('start').disabled = true; $('start').hidden = true; $('keyboard').disabled = false;
   status('Đang khởi tạo game…'); canvas.focus();
   try { Module.callMain([]); }
   catch (error) { if (error !== 'unwind') { failure(error); return; } }
   Module._pvz_web_resume_audio();
-  $('save').disabled = false;
+  
   gameTimer = setInterval(() => {
     const state = Module._pvz_web_ready();
     if (state === -2) { clearInterval(gameTimer); failure('Không khởi tạo được đồ họa WebGL. Hãy bật tăng tốc đồ họa của trình duyệt hoặc thử Chrome/Edge.'); }
-    else if (state < 0) { clearInterval(gameTimer); failure('Không tải được tài nguyên game; xem thông tin chẩn đoán.'); }
+    else if (state < 0) { clearInterval(gameTimer); failure('Không tải được tài nguyên game. Hãy tải lại trang.'); }
     else if (state === 1) { clearInterval(gameTimer); status('Game đã sẵn sàng.'); }
   }, 500);
 };
-$('save').onclick = () => save().catch(log);
+
 setInterval(() => { if (started) save(false).catch(log); }, 20000);
+setInterval(() => { if (started && Module._pvz_web_text_active) $('keyboard').disabled = !Module._pvz_web_text_active(); }, 250);
 document.addEventListener('visibilitychange', () => { if (document.hidden && started) save(false).catch(log); });
 window.addEventListener('pagehide', () => { if (started) save(false).catch(log); });
 document.addEventListener('pointerdown', () => { if (started) Module._pvz_web_resume_audio(); }, {passive:true});
@@ -119,25 +111,53 @@ $('fullscreen').onclick = async () => {
   try { if (document.fullscreenElement) await document.exitFullscreen(); else await $('stage').requestFullscreen(); canvas.focus(); }
   catch (error) { status('Trình duyệt chưa hỗ trợ toàn màn hình: ' + error, true); }
 };
-$('right').onclick = () => {
-  rightClick = !rightClick; $('right').setAttribute('aria-pressed', String(rightClick));
-  $('right').textContent = 'Cảm ứng: chuột ' + (rightClick ? 'phải' : 'trái'); canvas.focus();
+const keyboardInput = $('pvz-soft-keyboard');
+$('keyboard').onpointerdown = event => event.preventDefault();
+$('keyboard').onclick = () => {
+  if (document.activeElement === keyboardInput) { keyboardInput.blur(); canvas.focus(); }
+  else if (started) Module._pvz_web_keyboard();
 };
-canvas.addEventListener('contextmenu', event => event.preventDefault());
-function touchMouse(type, touch) {
-  canvas.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:touch.clientX,clientY:touch.clientY,button:rightClick?2:0,buttons:type==='mouseup'?0:(rightClick?2:1)}));
+for (const type of ['keydown','keyup','keypress']) keyboardInput.addEventListener(type, event => {
+  // Native mobile input supplies text via input/composition events, not SDL key events.
+  event.stopPropagation();
+  if (type === 'keydown' && !event.isComposing && ['Enter','Escape'].includes(event.key)) {
+    event.preventDefault(); Module._pvz_web_text_key(event.key === 'Enter' ? 13 : 27); keyboardInput.blur(); canvas.focus();
+  }
+});
+function updateNativeText(event) {
+  if (event.isComposing) return;
+  Module.ccall('pvz_web_set_text', null, ['string','number','number'], [keyboardInput.value, keyboardInput.selectionStart, keyboardInput.selectionEnd]);
 }
+keyboardInput.addEventListener('input', updateNativeText);
+keyboardInput.addEventListener('compositionend', updateNativeText);
+canvas.addEventListener('contextmenu', event => event.preventDefault());
+function touchMouse(type, touch, right = false) {
+  canvas.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:touch.clientX,clientY:touch.clientY,button:right?2:0,buttons:type==='mouseup'?0:(right?2:1)}));
+}
+let holdTimer, touchOrigin, touchPressed = false, touchHeld = false;
 canvas.addEventListener('touchstart', event => {
   event.preventDefault(); event.stopImmediatePropagation();
   if (activeTouch!==null || !event.changedTouches.length) return;
   const touch=event.changedTouches[0]; activeTouch=touch.identifier;
-  touchMouse('mousemove',touch); touchMouse('mousedown',touch); canvas.focus();
+  touchOrigin={clientX:touch.clientX,clientY:touch.clientY}; touchPressed=false; touchHeld=false;
+  touchMouse('mousemove',touch); canvas.focus();
+  // Hold for right-click without adding another control over the game.
+  holdTimer=setTimeout(()=>{touchHeld=true;touchMouse('mousedown',touchOrigin,true);touchMouse('mouseup',touchOrigin,true);},350);
 }, {capture:true,passive:false});
 for (const type of ['touchmove','touchend','touchcancel']) canvas.addEventListener(type, event => {
   event.preventDefault(); event.stopImmediatePropagation();
   for (const touch of event.changedTouches) if (touch.identifier===activeTouch) {
-    touchMouse(type==='touchmove'?'mousemove':'mouseup',touch);
-    if(type!=='touchmove') activeTouch=null;
+    if (type==='touchmove') {
+      if (!touchHeld && !touchPressed && Math.hypot(touch.clientX-touchOrigin.clientX,touch.clientY-touchOrigin.clientY)>10) {
+        clearTimeout(holdTimer); touchPressed=true; touchMouse('mousedown',touchOrigin);
+      }
+      if(touchPressed)touchMouse('mousemove',touch);
+    } else {
+      clearTimeout(holdTimer);
+      if(!touchHeld && type==='touchend' && !touchPressed)touchMouse('mousedown',touch);
+      if(touchPressed || (!touchHeld && type==='touchend'))touchMouse('mouseup',touch);
+      activeTouch=null;
+    }
   }
 }, {capture:true,passive:false});
 function filesBelow(path) {
@@ -149,7 +169,7 @@ function filesBelow(path) {
   }
   return files;
 }
-$('export').onclick = async () => {
+async function exportSave() {
   try {
     if(started)Module._pvz_web_save();
     const files=filesBelow('/saves').map(path => {
@@ -162,9 +182,9 @@ $('export').onclick = async () => {
     setTimeout(()=>URL.revokeObjectURL(url),1000);status('Đã tạo bản sao lưu tiến trình.');
   } catch(error) { status('Không tạo được bản sao lưu: '+error,true); }
 };
-$('import').onchange = async event => {
-  const file=event.target.files[0]; if(!file || started)return;
-  $('start').disabled=true; $('import').disabled=true;
+async function importSave(file) {
+  if (!file || started) return;
+  $('start').disabled = true;
   try {
     if(file.size>16*1024*1024)throw new Error('Bản sao lưu vượt quá 16 MB.');
     const archive=JSON.parse(await file.text());
@@ -179,10 +199,11 @@ $('import').onchange = async event => {
     for(const entry of files) { Module.FS.mkdirTree(entry.path.slice(0,entry.path.lastIndexOf('/')));Module.FS.writeFile(entry.path,entry.data); }
     await sync();status('Đã khôi phục tiến trình. Bấm Bắt đầu chơi.');
   } catch(error) { status('Không khôi phục được: '+error,true); }
-  finally { event.target.value=''; $('start').disabled=!ready; $('import').disabled=false; }
+  finally { $('start').disabled=!ready; }
 };
 </script>
 {{{ SCRIPT }}}
 </body>
 </html>
+
 

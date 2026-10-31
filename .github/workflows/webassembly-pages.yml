@@ -32,10 +32,20 @@ jobs:
       - name: Build the original TFT gameplay for browsers
         run: bash web/build.sh
       - name: Browser smoke test
+        env:
+          PVZ_SMOKE_SCREENSHOT: build-web/browser-check.png
         run: |
           npm install --prefix build-web/browser-test playwright@1.51.1
           build-web/browser-test/node_modules/.bin/playwright install --with-deps chromium
           NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-smoke.cjs build-web/dist
+      - name: Upload browser verification screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pvz-tft-browser-check
+          path: build-web/browser-check.png
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Upload playable build
         uses: actions/upload-artifact@v4
         with:
@@ -88,3 +98,4 @@ jobs:
           name: pvz-tft-live-check
           path: build-web/live-game.png
           retention-days: 14
+
