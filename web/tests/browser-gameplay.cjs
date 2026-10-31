@@ -58,10 +58,12 @@ async function main(){
         const tutorial=(await state()).tutorial;
         await hold(p.x,p.y);await healthy();assert.equal((await state()).locked,1,'repeated touch holds remain usable');
         assert.notEqual((await state()).tutorial,tutorial,'right-click advances the blocked Shop tutorial');
-        await page.evaluate(()=>{Module._pvz_web_test_command(2);Module._pvz_web_test_command(1);});
+        await page.evaluate(()=>Module._pvz_web_test_command(2));
+        const canvasBox=await page.locator('#canvas').boundingBox();
+        await page.touchscreen.tap(canvasBox.x+p.x*canvasBox.width/1280,canvasBox.y+p.y*canvasBox.height/720);
         await page.waitForTimeout(400);await healthy();
         const bench=(await state()).benchPoint;
-        assert.equal((await state()).bench,1);
+        assert.equal((await state()).bench,1,'a normal touch tap still buys a real Shop packet');
         await hold(bench.x,bench.y);await hold(bench.x,bench.y);await healthy();
         assert.equal((await state()).bench,0,'two successive holds sell a Bench packet');
         await page.screenshot({path:'build-web/gameplay-right-click-check.png'});
