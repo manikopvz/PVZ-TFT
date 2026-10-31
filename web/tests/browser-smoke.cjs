@@ -98,9 +98,12 @@ async function main() {
     assert.equal(await page.locator('#status').evaluate(el=>el.classList.contains('error')),false);
     // Persist a marker alongside real saves, reload, and verify IndexedDB restores it.
     await page.evaluate(async()=>{Module.FS.writeFile('/saves/web-smoke.txt','persistent');await save(false);});
+    // A full/unavailable IndexedDB must not prevent an emergency memory backup.
+    await page.evaluate(()=>{window.originalSyncfs=Module.FS.syncfs;Module.FS.syncfs=(_populate,callback)=>callback(new Error('simulated storage full'));});
     const playingBackup=page.waitForEvent('download');await page.locator('#export').click();
     const playingArchive=JSON.parse(fs.readFileSync(await (await playingBackup).path(),'utf8'));
     assert(playingArchive.files.some(x=>x.path==='web-smoke.txt'));
+    await page.evaluate(()=>{Module.FS.syncfs=window.originalSyncfs;delete window.originalSyncfs;});
     await page.reload();await page.locator('#start:enabled').waitFor({timeout:120000});
     assert.equal(await page.evaluate(()=>Module.FS.readFile('/saves/web-smoke.txt',{encoding:'utf8'})),'persistent');
     assert.equal(await page.locator('#restore').isEnabled(),true);
@@ -118,6 +121,15 @@ async function main() {
     await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Không khôi phục được'));
     assert.equal(await page.evaluate(()=>Module.FS.analyzePath('/outside').exists),false);
     assert.equal(await page.locator('#start').isEnabled(),true);
+    // Replace a former file by a directory, fail the first disk write, then
+    // verify rollback reconstructs the original file and persists it again.
+    await page.evaluate(async()=>{
+      const original=Module.FS.syncfs;let first=true;
+      Module.FS.syncfs=(populate,callback)=>{if(first){first=false;callback(new Error('simulated disk write failure'));}else original(populate,callback);};
+      try{await importSave(new File([JSON.stringify({format:'pvz-tft-web-save',version:1,files:[{path:'web-smoke.txt/child',data:'AA=='}]})],'rollback.json'));}
+      finally{Module.FS.syncfs=original;}
+    });
+    assert.equal(await page.evaluate(()=>Module.FS.readFile('/saves/web-smoke.txt',{encoding:'utf8'})),'persistent','failed import restores the previous file hierarchy');
     const version=await page.evaluate(()=>typeof SharedArrayBuffer);
     console.log(`Browser startup, full 1280x720 GL viewport, decoded music PCM, mobile username editing, responsive canvas, Pages subpath, IndexedDB, save backup UI, import replacement and traversal rejection passed (SharedArrayBuffer: ${version}).`);
     assert.deepEqual(errors,[]);

@@ -67,6 +67,7 @@ EMSCRIPTEN_KEEPALIVE void pvz_web_test_state() {
         EM_ASM({(Module.testState.cards??=[]).push({x:$0,y:$1,w:$2,h:$3,rollX:$4,rollY:$5});},
             card.mX,card.mY,card.mWidth,card.mHeight,roll.mX+roll.mWidth/2,roll.mY+roll.mHeight/2);
     }
+    EM_ASM({Module.testState.benchReady=!!$0;},board->mBenchCount>0 && !board->mBenchPackets[0].mBenchMoving && board->mBenchPackets[0].mRollAnim<=0 && !board->mBenchMergeActive);
     auto& packet=board->mSeedBank->mSeedPackets[1];
     EM_ASM({Module.testState.packet=({x:$0,y:$1});},board->mSeedBank->mX+packet.mX+packet.mOffsetX+packet.mWidth/2,
         board->mSeedBank->mY+packet.mY+packet.mHeight/2);

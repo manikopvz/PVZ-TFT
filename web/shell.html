@@ -152,7 +152,7 @@ function touchMouse(type, touch, right = false) {
   let count=1;
   if(type==='mousedown') {
     const now=performance.now();
-    count=lastTouchClick.right===right && now-lastTouchClick.time<500 && Math.hypot(x-lastTouchClick.x,y-lastTouchClick.y)<25 && lastTouchClick.count===1?2:1;
+    count=lastTouchClick.right===right && now-lastTouchClick.time<(right?1000:500) && Math.hypot(x-lastTouchClick.x,y-lastTouchClick.y)<25 && lastTouchClick.count===1?2:1;
     lastTouchClick={time:now,x,y,right,count};
   }
   Module._pvz_web_pointer(type==='mousemove'?0:type==='mousedown'?1:2,x,y,right?1:0,count);
@@ -212,7 +212,7 @@ function filesBelow(path) {
 }
 async function exportSave() {
   try {
-    if(started)await save(false);
+    if(started)await save(false).catch(log);
     const files=filesBelow('/saves').map(path => {
       const bytes=Module.FS.readFile(path); let binary='';
       for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
@@ -232,14 +232,21 @@ async function importSave(file) {
     if(archive.format!=='pvz-tft-web-save' || archive.version!==1 || !Array.isArray(archive.files))throw new Error('Sai định dạng bản sao lưu.');
     let total=0; const seen=new Set();
     const files=archive.files.map(entry => {
-      if(typeof entry.path!=='string' || entry.path.includes('\\') || entry.path.split('/').some(x=>!x || x==='.' || x==='..') || seen.has(entry.path))throw new Error('Đường dẫn không hợp lệ.');
+      if(typeof entry.path!=='string' || entry.path.includes('\\') || entry.path.split('/')[0]==='cached' || entry.path.split('/').some(x=>!x || x==='.' || x==='..') || seen.has(entry.path))throw new Error('Đường dẫn không hợp lệ.');
       seen.add(entry.path);const binary=atob(entry.data);total+=binary.length;
       if(total>12*1024*1024)throw new Error('Dữ liệu lưu quá lớn.');
       return {path:'/saves/'+entry.path,data:Uint8Array.from(binary,c=>c.charCodeAt(0))};
     });
     const previous=filesBelow('/saves').map(path=>({path,data:Module.FS.readFile(path)}));
+    const clearSaved=path=>{
+      for(const name of Module.FS.readdir(path)){
+        if(name==='.' || name==='..' || (path==='/saves' && name==='cached'))continue;
+        const child=path+'/'+name;
+        if(Module.FS.isDir(Module.FS.stat(child).mode)){clearSaved(child);Module.FS.rmdir(child);}else Module.FS.unlink(child);
+      }
+    };
     const writeAll=entries=>{
-      for(const path of filesBelow('/saves'))Module.FS.unlink(path);
+      clearSaved('/saves');
       for(const entry of entries){Module.FS.mkdirTree(entry.path.slice(0,entry.path.lastIndexOf('/')));Module.FS.writeFile(entry.path,entry.data);}
     };
     try { writeAll(files); await sync(); }

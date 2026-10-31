@@ -80,6 +80,7 @@ async function main(){
         const canvasBox=await page.locator('#canvas').boundingBox();
         await page.touchscreen.tap(canvasBox.x+p.x*canvasBox.width/1280,canvasBox.y+p.y*canvasBox.height/720);
         await page.waitForTimeout(400);await healthy();
+        await page.waitForFunction(()=>{Module._pvz_web_test_state();return Module.testState.benchReady;});
         const bench=(await state()).benchPoint;
         assert.equal((await state()).bench,1,'a normal touch tap still buys a real Shop packet');
         await hold(bench.x,bench.y);await hold(bench.x,bench.y);await healthy();
