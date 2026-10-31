@@ -243,6 +243,27 @@ p.write_text(s)
 shutil.copy2(root/'web/runtime.cpp',src/'web_runtime.cpp')
 shutil.copy2(root/'web/tests/runtime.h',src/'web_test_runtime.h')
 shutil.copy2(root/'web/shell.html',out/'wasm/shell.html')
+# Windows resource names are case-insensitive (IceShroom vs Iceshroom,
+# TwinSunflower vs TwinSunFlower). The portable compiled reader bypasses the
+# framework's case-aware PFILE path with std::ifstream; use PFILE consistently.
+p=src/'Sexy.TodLib/Definition.cpp';s=p.read_text()
+start=s.index('    std::string aFullCompiledPath =',s.index('bool DefinitionReadCompiledFile('))
+end=s.index('    size_t aUncompressedSize;',start)
+s=s[:start]+'''    std::string aFullCompiledPath=DefinitionGetCompiledCacheFullPath(theCompiledFilePath);
+    PFILE* file=p_fopen(aFullCompiledPath.c_str(), "rb");
+    if(!file)file=p_fopen(theCompiledFilePath.c_str(), "rb");
+    if(!file)return false;
+    p_fseek(file,0,SEEK_END);
+    const long length=p_ftell(file);
+    if(length<=0){p_fclose(file);return false;}
+    const size_t aCompressedSize=static_cast<size_t>(length);
+    p_fseek(file,0,SEEK_SET);
+    void* aCompressedBuffer=DefinitionAlloc(aCompressedSize);
+    const bool failed=p_fread(aCompressedBuffer,1,aCompressedSize,file)!=aCompressedSize;
+    p_fclose(file);
+    if(failed){delete[] static_cast<char*>(aCompressedBuffer);return false;}
+
+'''+s[end:];p.write_text(s)
 # Match the projection and mouse presentation rectangle to this game's logical size.
 p=fw/'graphics/GLInterface.cpp';s=p.read_text()
 s=body(s,'void GLInterface::UpdateViewport()', '''

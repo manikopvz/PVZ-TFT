@@ -31,9 +31,11 @@ async function main(){
       const healthy=async()=>{const n=await page.evaluate(()=>Module._pvz_web_updates());await page.waitForFunction(n=>Module._pvz_web_updates()>n+5,n,{timeout:5000});assert.deepEqual(errors,[]);};
       const click=async(x,y,options={})=>{const b=await page.locator('#canvas').boundingBox();await page.mouse.click(b.x+x*b.width/1280,b.y+y*b.height/720,options);};
       const hold=async(x,y)=>{
-        await page.evaluate(({x,y})=>{const c=Module.canvas,r=c.getBoundingClientRect();const t=new Touch({identifier:1,target:c,clientX:r.left+x*r.width/1280,clientY:r.top+y*r.height/720});window.testTouch=t;c.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,cancelable:true,touches:[t],changedTouches:[t]}));},{x,y});
+        const r=await page.locator('#canvas').boundingBox();
+        const input=await context.newCDPSession(page);
+        await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:r.x+x*r.width/1280,y:r.y+y*r.height/720}]});
         await page.waitForTimeout(380);
-        await page.evaluate(()=>Module.canvas.dispatchEvent(new TouchEvent('touchend',{bubbles:true,cancelable:true,touches:[],changedTouches:[window.testTouch]})));
+        await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await input.detach();
         await page.waitForTimeout(50);
       };
       await healthy();
@@ -47,7 +49,16 @@ async function main(){
         const p=(await state()).packet;
         await click(p.x,p.y,{button:'right'});await healthy();assert.equal((await state()).locked,1,'desktop right-click locks a Shop packet');
         await hold(p.x,p.y);await healthy();assert.equal((await state()).locked,0,'touch hold sends a right-click to the game');
+        await page.evaluate(()=>Module._pvz_web_test_command(0));
+        const tutorial=(await state()).tutorial;
         await hold(p.x,p.y);await healthy();assert.equal((await state()).locked,1,'repeated touch holds remain usable');
+        assert.notEqual((await state()).tutorial,tutorial,'right-click advances the blocked Shop tutorial');
+        await page.evaluate(()=>{Module._pvz_web_test_command(2);Module._pvz_web_test_command(1);});
+        await page.waitForTimeout(400);await healthy();
+        const bench=(await state()).benchPoint;
+        assert.equal((await state()).bench,1);
+        await hold(bench.x,bench.y);await hold(bench.x,bench.y);await healthy();
+        assert.equal((await state()).bench,0,'two successive holds sell a Bench packet');
         await page.screenshot({path:'build-web/gameplay-right-click-check.png'});
       } else {
         let s=await state();assert.equal(s.choosing,true,'wave 3 enters the Augment chooser');

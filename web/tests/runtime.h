@@ -14,11 +14,18 @@ EMSCRIPTEN_KEEPALIVE void pvz_web_test_setup(int scene) {
     board->mCutScene->CancelIntro();
     if(gLawnApp->mGameScene!=GameScenes::SCENE_PLAYING)gLawnApp->StartPlaying();
     board->EndRollTutorial(); board->mRollTutorialChecked=true;
+    board->mTutorialState=TutorialState::TUTORIAL_OFF;
     board->mSunMoney=100; board->mZombieCountDown=100000;
     if(scene==2) {
         board->mCurrentWave=2; board->mZombieCountDown=1;
         board->UpdateZombieSpawning();
     }
+}
+EMSCRIPTEN_KEEPALIVE void pvz_web_test_command(int action) {
+    auto* board=gLawnApp->mBoard;
+    if(action==0)board->SetRollTutorialStep(ROLL_TUT_LOCK);
+    else if(action==1)board->AddSeedToBench(SeedType::SEED_PEASHOOTER,1,0);
+    else if(action==2)board->EndRollTutorial();
 }
 EMSCRIPTEN_KEEPALIVE void pvz_web_test_state() {
     auto* board=gLawnApp->mBoard;
@@ -38,5 +45,6 @@ EMSCRIPTEN_KEEPALIVE void pvz_web_test_state() {
     auto& packet=board->mSeedBank->mSeedPackets[1];
     EM_ASM({Module.testState.packet=({x:$0,y:$1});},board->mSeedBank->mX+packet.mX+packet.mOffsetX+packet.mWidth/2,
         board->mSeedBank->mY+packet.mY+packet.mHeight/2);
+    EM_ASM({Module.testState.benchPoint=({x:$0,y:$1});},board->GetBenchSlotX(0)+SEED_PACKET_WIDTH/2,board->GetBenchRestY()+SEED_PACKET_HEIGHT/2);
 }
 }
