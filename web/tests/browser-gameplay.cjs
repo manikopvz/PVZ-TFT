@@ -18,6 +18,8 @@ async function main(){
   let failed=false;
   for(const [scene,name] of [[0,'almanac'],[1,'right-click'],[2,'augment-wave']]){
     const context=await browser.newContext({viewport:{width:1280,height:720},hasTouch:true});
+    context.setDefaultTimeout(10000);
+    const watchdog=setTimeout(()=>{console.error(`${name}: renderer stopped responding; closing isolated context.`);context.close().catch(()=>{});},45000);
     const page=await context.newPage();const errors=[];
     page.on('pageerror',e=>errors.push(e.stack));
     try{
@@ -60,8 +62,8 @@ async function main(){
     }catch(e){
       failed=true;console.error(`${name}:`,e.stack);console.error(errors);
       console.error(await page.locator('#log').textContent().catch(()=>''));
-      await page.screenshot({path:`build-web/gameplay-${name}-check.png`}).catch(()=>{});
-    }finally{await context.close();}
+      await page.screenshot({path:`build-web/gameplay-${name}-check.png`,timeout:5000}).catch(()=>{});
+    }finally{clearTimeout(watchdog);await context.close();}
   }
   await browser.close();await new Promise(r=>server.close(r));
   if(failed)throw new Error('Native gameplay regressions failed.');
