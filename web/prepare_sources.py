@@ -16,7 +16,7 @@ args=parser.parse_args()
 root=Path(__file__).resolve().parents[1]
 engine=args.engine.resolve()
 out=args.output.resolve()
-if out==root or out in root.parents or out==engine or out in engine.parents:
+if out==root or out in root.parents or out==engine or out in engine.parents or engine in out.parents:
     raise ValueError('Output must be a separate generated directory')
 out.mkdir(exist_ok=True)
 shutil.copytree(engine,out,dirs_exist_ok=True,ignore=shutil.ignore_patterns('.git'))
@@ -25,7 +25,7 @@ shutil.rmtree(src/'Lawn')
 shutil.copytree(root/'Lawn',src/'Lawn')
 for name in ['LawnApp.cpp','LawnApp.h','ConstEnums.h','GameConstants.h','Resources.cpp','Resources.h']:
     shutil.copy2(root/name,src/name)
-# Use the portable music mixer and data serializer; keep game rules in this repo.
+# Use portable music and pool rendering; keep gameplay and save serialization in this repo.
 for name in ['Music.cpp','Music.h']:
     shutil.copy2(engine/'src/Lawn/System'/name,src/'Lawn/System'/name)
 for name in ['PoolEffect.cpp','PoolEffect.h']:
@@ -150,9 +150,9 @@ public:
  std::string GetResourcePackString();
 '''
 p=fw/'SexyAppBase.h';p.write_text(p.read_text().replace('class SexyAppBase : public ButtonListener, public DialogListener\n{','class SexyAppBase : public ButtonListener, public DialogListener\n{'+extra))
-rp=fw/'misc/ResourceManager.h';rp.write_text(rp.read_text().replace('ResMap\t\t\t\t\t\t\tmImageMap;', 'ResMap\t\t\t\t\t\t\tmImageMap;'))
+rp=fw/'misc/ResourceManager.h'
 # Keep the optional pack map visible to the original application; default resources use mImageMap.
-s=rp.read_text();pos=s.index('typedef std::map<std::string, BaseRes*>') if 'typedef std::map<std::string, BaseRes*>' in s else -1
+s=rp.read_text()
 s=re.sub(r'(typedef[^;]+\bResMap;)',r'\1\n std::map<std::string, ResMap> mResourcePackImageMaps;',s,count=1);rp.write_text(s)
 base=fw/'SexyAppBase.cpp';base.write_text('#include "../Sexy.TodLib/TodStringFile.h"\nextern bool TodStringListReadFile(const char*);\n'+base.read_text()+'''
 void Sexy::SexyAppBase::ReloadLanguages() {
@@ -218,6 +218,7 @@ p=src/'Lawn/Widget/NewOptionsDialog.cpp'
 s=p.read_text()
 for name in ['mDiscordCheckbox','mResourcePackButton','mReloadResourcePacksButton']:
     s=s.replace(name+'->SetVisible(true)',name+'->SetVisible(false)')
+s='\n'.join(line for line in s.split('\n') if not ('TodDrawString(' in line and any(key in line for key in ['[OPTIONS_DISCORD_PRESENCE]','[OPTIONS_RESOURCE_PACK]'])))
 p.write_text(s)
 
 # Preserve the original TFT/QE settings using the engine's file-backed registry.
@@ -230,7 +231,11 @@ settings={
  'QE_Language':('String','mLanguage')
 }
 for method,operation in [('ReadFromRegistry','Read'),('WriteToRegistry','Write')]:
-    start=s.index('{',s.index('void SexyAppBase::'+method+'('))+1
+    if operation=='Read':
+        marker='regemu::SetRegFile(GetAppDataPath("registry.regemu"));'
+        start=s.index(marker,s.index('void SexyAppBase::ReadFromRegistry('))+len(marker)
+    else:
+        start=s.index('{',s.index('void SexyAppBase::'+method+'('))+1
     calls='\n'.join(f' Registry{operation}{kind}("{key}", {"&" if operation=="Read" else ""}{field});' for key,(kind,field) in settings.items())
     if operation=='Read':calls+='\n mSpeedModifier=std::clamp(mSpeedModifier,2,9); mQuickLevel=std::clamp(mQuickLevel,1,50);'
     s=s[:start]+'\n'+calls+'\n'+s[start:]
@@ -250,3 +255,4 @@ target_link_options(pvz-portable PRIVATE
 )
 set_target_properties(pvz-portable PROPERTIES OUTPUT_NAME "index")
 ''')
+

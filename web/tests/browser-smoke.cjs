@@ -45,10 +45,19 @@ async function main() {
     const download=await downloadPromise;
     const archive=JSON.parse(fs.readFileSync(await download.path(),'utf8'));
     assert.equal(archive.format,'pvz-tft-web-save');assert(archive.files.some(x=>x.path==='web-smoke.txt'));
+    await page.evaluate(()=>Module.FS.unlink('/saves/web-smoke.txt'));
+    await page.locator('#import').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(archive))});
+    await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Đã khôi phục'));
+    assert.equal(await page.evaluate(()=>Module.FS.readFile('/saves/web-smoke.txt',{encoding:'utf8'})),'persistent');
+    await page.locator('#import').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'pvz-tft-web-save',version:1,files:[{path:'../outside',data:'AA=='}]}))});
+    await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Không khôi phục được'));
+    assert.equal(await page.evaluate(()=>Module.FS.analyzePath('/outside').exists),false);
+    assert.equal(await page.locator('#start').isEnabled(),true);
     const version=await page.evaluate(()=>typeof SharedArrayBuffer);
-    console.log(`Browser startup, 1280x720 canvas, Pages subpath, IndexedDB and save export passed (SharedArrayBuffer: ${version}).`);
+    console.log(`Browser startup, 1280x720 canvas, Pages subpath, IndexedDB, save export/import and traversal rejection passed (SharedArrayBuffer: ${version}).`);
     assert.deepEqual(errors,[]);
     await context.close();
   } finally {if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
+

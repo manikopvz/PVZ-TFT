@@ -8,7 +8,7 @@ openmpt_revision="libopenmpt-0.8.4"
 openmpt_commit="327204eaa2c27bd1acbb571babe68f279c85238b"
 jobs="${PVZ_WEB_JOBS:-4}"
 
-for tool in emcc emmake emcmake cmake ninja git python3 make; do
+for tool in emcc emmake emcmake em-config cmake ninja git python3 make; do
   command -v "$tool" >/dev/null || { echo "Missing $tool. Activate Emscripten 4.0.21 and install CMake, Ninja, Python 3 and make." >&2; exit 1; }
 done
 mkdir -p "$work_dir"
@@ -57,8 +57,11 @@ done
 cp "$engine_dir/LICENSE" "$engine_dir/COPYING" "$dist_dir/licenses/portable/"
 cp "$engine_dir/src/SexyAppFramework/LICENSE" "$dist_dir/licenses/portable/PopCap.txt"
 cp "$music_dir/LICENSE" "$dist_dir/licenses/openmpt/"
+python3 "$repo_dir/web/package_notices.py" "$(em-config CACHE)/ports" \
+  "$engine_dir/src/SexyAppFramework/sound/SDL-Mixer-X" "$dist_dir/licenses/codecs"
 cp "$repo_dir/web/THIRD_PARTY.md" "$dist_dir/licenses/README.md"
 cp "$stage_dir/assets/asset-manifest.json" "$dist_dir/asset-manifest.json"
 touch "$dist_dir/.nojekyll"
 git -C "$repo_dir" rev-parse HEAD > "$dist_dir/source-revision.txt"
 printf 'Built PVZ-TFT WebAssembly: %s\n' "$dist_dir"
+

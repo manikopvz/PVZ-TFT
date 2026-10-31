@@ -23,7 +23,7 @@ jobs:
         with:
           version: '4.0.21'
           actions-cache-folder: emsdk-cache
-      - name: Test packaging and source adapters
+      - name: Test asset packaging
         run: python3 -m unittest discover -s web/tests -v
       - uses: actions/cache@v4
         with:
@@ -64,3 +64,4 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+

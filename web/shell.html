@@ -163,6 +163,7 @@ $('export').onclick = async () => {
 };
 $('import').onchange = async event => {
   const file=event.target.files[0]; if(!file || started)return;
+  $('start').disabled=true; $('import').disabled=true;
   try {
     if(file.size>16*1024*1024)throw new Error('Bản sao lưu vượt quá 16 MB.');
     const archive=JSON.parse(await file.text());
@@ -177,9 +178,10 @@ $('import').onchange = async event => {
     for(const entry of files) { Module.FS.mkdirTree(entry.path.slice(0,entry.path.lastIndexOf('/')));Module.FS.writeFile(entry.path,entry.data); }
     await sync();status('Đã khôi phục tiến trình. Bấm Bắt đầu chơi.');
   } catch(error) { status('Không khôi phục được: '+error,true); }
-  finally { event.target.value=''; }
+  finally { event.target.value=''; $('start').disabled=!ready; $('import').disabled=false; }
 };
 </script>
 {{{ SCRIPT }}}
 </body>
 </html>
+
