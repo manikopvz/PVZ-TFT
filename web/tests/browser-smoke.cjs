@@ -59,6 +59,15 @@ async function main() {
     console.log(`Browser startup, 1280x720 canvas, Pages subpath, IndexedDB, save export/import and traversal rejection passed (SharedArrayBuffer: ${version}).`);
     assert.deepEqual(errors,[]);
     await context.close();
+    if(!liveUrl) {
+      const graphicsContext=await browser.newContext();
+      await graphicsContext.addInitScript(()=>{const get=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){return ['webgl','webgl2','experimental-webgl'].includes(type)?null:get.call(this,type,...args);};});
+      const graphicsPage=await graphicsContext.newPage();await graphicsPage.goto(url);
+      await graphicsPage.locator('#start:enabled').waitFor({timeout:120000});await graphicsPage.locator('#start').click();
+      await graphicsPage.waitForFunction(()=>document.getElementById('status').classList.contains('error') && document.getElementById('status').textContent.includes('WebGL'));
+      assert.equal(await graphicsPage.evaluate(()=>Module._pvz_web_ready()),-2);
+      await graphicsContext.close();console.log('Unavailable WebGL reports a clear startup error.');
+    }
   } finally {if(browser)await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
