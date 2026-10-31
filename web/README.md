@@ -26,9 +26,13 @@ No SharedArrayBuffer, pthreads, cross-origin-isolation headers, backend server o
 
 ## Controls and saves
 
-Click **Bắt đầu chơi** after the resources load. Mouse and keyboard retain the game's controls. Touch input can switch between left and right mouse actions; double right-click still reaches the Bench's sell interaction. SDL2 provides browser gamepad input without consuming the engine's mouse/keyboard event queue.
+The page contains only the game canvas, a centered play icon after loading, and keyboard/fullscreen icons in the upper corner. Click the play icon to unlock browser audio and start the game. The renderer uses the original 1280×720 logical size with a matching 16:9 GL viewport and mouse mapping. Smaller screens fit the whole canvas without stretching; only unused space outside the canvas may be black.
 
-Saves and configuration live under `/saves/` in IndexedDB. The filesystem is restored before the Start button becomes available. The app checkpoints and synchronizes every 20 seconds, on **Lưu tiến trình**, and when the tab becomes hidden. Closing a tab can interrupt the last asynchronous write; use Save or download a backup before leaving. JSON backups can be imported before starting the game. Existing Windows saves are not promised to be compatible with this build's data layout.
+Mouse and keyboard retain the game's controls. On mobile, select the username field in the game and tap the keyboard icon to open the system keyboard. Text, deletion, paste and Enter go through the native EditWidget validation and length limit. The existing bitmap font supports ASCII usernames. Browser gamepad input uses SDL2 without consuming the engine's mouse/keyboard event queue.
+
+Saves and configuration live under `/saves/` in IndexedDB and restore before play becomes available. The app checkpoints every 20 seconds and when the tab becomes hidden. Save/backup controls are no longer displayed. Advanced backup helpers remain available as `exportSave()` and `importSave(file)` in the browser console. Closing a tab can interrupt the last asynchronous write. Existing Windows saves are not promised compatible with this build's data layout.
+
+Background music requires the statically linked OpenMPT decoder in SDL-Mixer-X, configured with its case-sensitive `OpenMPT_LIBRARY` and `OpenMPT_INCLUDE_DIR` variables. Configuration now fails if the decoder is omitted. The smoke test requires an active music stream and increasing nonzero decoded music PCM, independently of SFX.
 
 The web target uses the bundled default resource pack. Desktop Discord Rich Presence, native font selection and resource-pack switching are unavailable in the browser build; their controls are hidden. Existing bitmap fonts are used for the debug font paths. The code changes do not add artwork.
 
@@ -41,6 +45,7 @@ build-web/browser-test/node_modules/.bin/playwright install --with-deps chromium
 NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-smoke.cjs build-web/dist
 ```
 
-The browser test serves the output under `/PVZ-TFT/`, starts the actual Wasm game, checks the 1280×720 canvas and loading completion, verifies IndexedDB restoration after a reload, and downloads a save backup. GitHub Actions runs the same checks. These checks are a startup/save smoke test; they do not establish that every level, augment or gamepad has received a full playthrough.
+The browser test serves the output under `/PVZ-TFT/`, starts the actual Wasm game, checks the full 1280×720 GL viewport, decoded music, mobile username edits, responsive aspect ratio and loading completion, verifies IndexedDB restoration after a reload, and downloads a save backup. GitHub Actions runs the same checks. These checks are a startup/save smoke test; they do not establish that every level, augment or gamepad has received a full playthrough.
 
 See [THIRD_PARTY.md](THIRD_PARTY.md) for the pinned backend and license information. Source transformations are confined to the generated staging directory, so future TFT gameplay edits remain the source of truth for both targets.
+
