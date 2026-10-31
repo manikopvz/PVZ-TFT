@@ -1,0 +1,46 @@
+# PVZ-TFT on WebAssembly / GitHub Pages
+
+This target compiles the repository's TFT gameplay to WebAssembly. It uses a pinned PvZ-Portable platform backend for WebGL, SDL audio, the browser event loop and filesystem access. `web/prepare_sources.py` stages the original `Lawn/`, `LawnApp`, resource IDs and constants; it does not substitute the upstream game's board or rules. The Windows project stays available.
+
+## Build
+
+Install and activate **Emscripten 4.0.21**, plus CMake, Ninja, Python 3, make and git. On Ubuntu, `sudo apt-get install cmake ninja-build python3 make git` installs the native build tools.
+
+```bash
+source /path/to/emsdk/emsdk_env.sh
+bash web/build.sh
+python3 -m http.server 8080 --directory build-web/dist
+```
+
+Open `http://localhost:8080/`. Opening `index.html` directly as a local file does not load the Wasm/data bundle correctly. The first build also builds libopenmpt for Emscripten. Dependencies are pinned; later builds reuse the music library. Set `PVZ_WEB_JOBS` to adjust build parallelism and `PVZ_WEB_BUILD_DIR` to use a separate build directory.
+
+The output is `build-web/dist/`: `index.html`, `index.js`, `index.wasm`, `index.data`, asset hashes and license information. Only the eight resource directories selected in `package_assets.py` are bundled. Local saves, executable files, DLLs and tools in `Debug/` are excluded.
+
+## Publish on GitHub Pages
+
+The workflow `.github/workflows/webassembly-pages.yml` builds and runs tests for PRs. It uploads a downloadable `pvz-tft-web` artifact. Pushes to `main` and manual runs on `main` deploy the tested output to Pages.
+
+In **Settings → Pages → Build and deployment → Source**, select **GitHub Actions** once. The expected project URL is `https://manikopvz.github.io/PVZ-TFT/`; the action's deployment output is authoritative. The repository can remain private if its GitHub plan supports Pages for private repositories. If GitHub reports that the plan does not support Pages, that account setting must be resolved before deployment can succeed. Do not make the repository public just to run the build.
+
+No SharedArrayBuffer, pthreads, cross-origin-isolation headers, backend server or external CDN is needed to play. The HTML and generated loader use relative paths, including beneath `/PVZ-TFT/`.
+
+## Controls and saves
+
+Click **Bắt đầu chơi** after the resources load. Mouse and keyboard retain the game's controls. Touch input can switch between left and right mouse actions; double right-click still reaches the Bench's sell interaction. SDL2 provides browser gamepad input without consuming the engine's mouse/keyboard event queue.
+
+Saves and configuration live under `/saves/` in IndexedDB. The filesystem is restored before the Start button becomes available. The app checkpoints and synchronizes every 20 seconds, on **Lưu tiến trình**, and when the tab becomes hidden. Closing a tab can interrupt the last asynchronous write; use Save or download a backup before leaving. JSON backups can be imported before starting the game. Existing Windows saves are not promised to be compatible with this build's data layout.
+
+The web target uses the bundled default resource pack. Desktop Discord Rich Presence, native font selection and resource-pack switching are unavailable in the browser build; their controls are hidden. Existing bitmap fonts are used for the debug font paths. The code changes do not add artwork.
+
+## Validation
+
+```bash
+python3 -m unittest discover -s web/tests -v
+npm install --prefix build-web/browser-test playwright@1.51.1
+build-web/browser-test/node_modules/.bin/playwright install --with-deps chromium
+NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-smoke.cjs build-web/dist
+```
+
+The browser test serves the output under `/PVZ-TFT/`, starts the actual Wasm game, checks the 1280×720 canvas and loading completion, verifies IndexedDB restoration after a reload, and downloads a save backup. GitHub Actions runs the same checks. These checks are a startup/save smoke test; they do not establish that every level, augment or gamepad has received a full playthrough.
+
+See [THIRD_PARTY.md](THIRD_PARTY.md) for the pinned backend and license information. Source transformations are confined to the generated staging directory, so future TFT gameplay edits remain the source of truth for both targets.

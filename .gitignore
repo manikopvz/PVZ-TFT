@@ -23,3 +23,8 @@ Debug/LawnProject.exe
 /enc_temp_folder
 /Debug/appdata
 /Debug/crash.txt
+# WebAssembly build outputs
+/build-web/
+/web/__pycache__/
+/web/tests/__pycache__/
+

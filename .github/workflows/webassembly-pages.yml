@@ -1,0 +1,67 @@
+name: WebAssembly and GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wasm-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '4.0.21'
+          actions-cache-folder: emsdk-cache
+      - name: Test asset packaging
+        run: python3 -m unittest discover -s web/tests -v
+      - uses: actions/cache@v4
+        with:
+          path: build-web/openmpt-prefix
+          key: wasm-openmpt-0.8.4-emsdk-4.0.21-v1
+      - name: Build the original TFT gameplay for browsers
+        run: bash web/build.sh
+      - name: Browser smoke test
+        run: |
+          npm install --prefix build-web/browser-test playwright@1.51.1
+          build-web/browser-test/node_modules/.bin/playwright install --with-deps chromium
+          NODE_PATH="$PWD/build-web/browser-test/node_modules" node web/tests/browser-smoke.cjs build-web/dist
+      - name: Upload playable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: pvz-tft-web
+          path: build-web/dist
+          retention-days: 14
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build-web/dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check Pages configuration
+        uses: actions/configure-pages@v5
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+
